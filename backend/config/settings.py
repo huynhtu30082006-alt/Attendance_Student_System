@@ -48,7 +48,7 @@ INSTALLED_APPS = [
     "classrooms",
     "attendance",
 ]
-AUTH_USER_MODEL = "accounts.User"
+AUTH_USER_MODEL = "accounts.UserAccount"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -65,7 +65,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -104,6 +104,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},  # NFR Password Protection: at least 8 characters
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -111,6 +112,13 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
+]
+
+
+# Passwords are stored only as salted hashes (NFR Password Protection): PBKDF2 first, so every new
+# or changed password uses it.
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
 ]
 
 
@@ -140,3 +148,22 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Login, session, cookies (NFR Security)
+# ---------------------------------------------------------------------------
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "home"
+LOGOUT_REDIRECT_URL = "login"
+
+SESSION_COOKIE_AGE = 30 * 60          # expires after 30 minutes of inactivity
+SESSION_SAVE_EVERY_REQUEST = True     # every request renews the 30 minutes
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+# Enable only when served over HTTPS: set DJANGO_HTTPS=True in .env
+SESSION_COOKIE_SECURE = os.getenv("DJANGO_HTTPS", "False") == "True"
+CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
+X_FRAME_OPTIONS = "DENY"
+SECURE_CONTENT_TYPE_NOSNIFF = True

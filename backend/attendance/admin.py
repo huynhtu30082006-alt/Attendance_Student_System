@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AttendanceRecord, Setting
+from .models import Setting
 
-admin.site.register(AttendanceRecord)
+# AttendanceRecord has a composite primary key (not supported by the Django admin site).
 admin.site.register(Setting)
