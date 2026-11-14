@@ -3,7 +3,21 @@
 <h1>Session {{ session.date }} {{ session.start_time|time:"H:i" }}</h1>
 <p>Classroom: <a href="{% url 'classroom_detail' session.classroom.pk %}">{{ session.classroom.name }}</a> |
 Course: {{ session.classroom.course.code }} - {{ session.classroom.course.name }} |
-Room: {{ session.room }} | Status: {{ session.get_status_display }}</p>
-{% if can_manage and session.is_scheduled %}<a href="{% url 'session_update' session.pk %}">Edit</a> <a href="{% url 'session_cancel' session.pk %}">Cancel</a>{% endif %}
-<a href="{% url 'session_list' %}">Back to list</a>
+Room: {{ session.room }} | Status: <strong>{{ session.get_status_display }}</strong></p>
+
+<p>
+  {% if can_manage and session.is_scheduled %}
+    <a href="{% url 'session_update' session.pk %}">Edit</a> |
+    <a href="{% url 'session_cancel' session.pk %}">Cancel</a> |
+  {% endif %}
+  {% if session.is_scheduled %}
+    <form method="post" action="{% url 'session_open' session.pk %}" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" style="background: #198754; color: white; border: none; padding: 5px 10px; cursor: pointer;">Open Session for Attendance</button>
+    </form> |
+  {% elif session.status == "OPEN" %}
+    <a href="{% url 'take_attendance' session.pk %}" style="color: green; font-weight: bold; font-size: 1.1em;">👉 Take Attendance Now</a> |
+  {% endif %}
+  <a href="{% url 'session_list' %}">Back to list</a>
+</p>
 {% endblock %}
