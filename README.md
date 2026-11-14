@@ -40,18 +40,6 @@ docker compose exec web python manage.py createsuperuser
 Nhập username, họ tên, email, mật khẩu do bạn tự đặt. Sau đó mở http://localhost:8000/login/ để đăng nhập,
 hoặc http://localhost:8000/admin/ để vào trang quản trị Django.
 
-**Chạy test:**
-
-```powershell
-docker compose exec web python manage.py test
-```
-
-Kết quả đúng là kết thúc bằng `OK`. Bản mặc định dùng PBKDF2 thật nên chạy chậm (~2-3 phút); muốn nhanh (~5 giây):
-
-```powershell
-docker compose exec web python manage.py test --settings=config.test_settings
-```
-
 **Sau khi pull bản viết lại theo ERD:** migration đã được tạo lại từ đầu, nên phải xóa database cũ một lần:
 `docker compose down -v` rồi `docker compose up --build`, sau đó tạo lại Admin bằng `createsuperuser`.
 
@@ -75,7 +63,7 @@ Attendance_System/
 ├── .env.example              # mẫu biến môi trường (copy thành .env)
 ├── .env                      # của riêng mỗi người, KHÔNG commit
 ├── README.md
-└── backend/
+└── source/
     ├── Dockerfile
     ├── requirements.txt      # danh sách thư viện Python (chỉ giữ 1 file này)
     ├── manage.py
@@ -169,11 +157,11 @@ giao diện hoàn chỉnh (Frontend). Các template hiện tại chỉ là bản
 
 - `main`: bản nộp, không push trực tiếp. `develop`: tích hợp. Mỗi việc một nhánh `feature/<tên>-<module>`.
 - Mở Pull Request vào `develop`, ít nhất 1 người review trước khi merge.
-- Commit rõ nghĩa, ví dụ: `feat(classrooms): add Enrollment model`.
+- Commit rõ nghĩa, ví dụ: `BE1 task: add Enrollment model`.
 - **Không commit** `.env`, `venv/`, `db.sqlite3`. Trước khi commit chạy `git status` để kiểm tra.
 - **File migration được commit** cùng code. Người khác `git pull` rồi chạy lại là có sẵn, **không cần** chạy
   `makemigrations`. Chỉ chạy lệnh đó khi bạn sửa `models.py`, và báo cả nhóm vì dễ xung đột.
-- Nhóm Frontend: sửa giao diện trong `backend/templates/`, giữ nguyên tên template, tên biến và tên URL
+- Nhóm Frontend: sửa giao diện trong `source/templates/`, giữ nguyên tên template, tên biến và tên URL
   (tên URL nằm trong các file `urls.py`).
 
 ---

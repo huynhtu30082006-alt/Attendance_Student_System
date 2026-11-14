@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5433:5432"   # cổng 5433 trên máy bạn -> 5432 trong container
+      - "5433:5432"  
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +18,7 @@ services:
       retries: 10
 
   web:
-    build: ./backend
+    build: ./source
     container_name: attendance_web
     restart: unless-stopped
     env_file: .env
@@ -29,7 +29,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./source:/app
     depends_on:
       db:
         condition: service_healthy
