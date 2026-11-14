@@ -107,8 +107,10 @@ def get_classroom_attendance_report(classroom):
     }
     """
     threshold = get_absence_threshold()
-    closed_sessions = classroom.sessions.filter(status=SessionStatus.CLOSED).order_by("date", "start_time")
-    total_closed = closed_sessions.count()
+    closed_sessions = list(
+        classroom.sessions.filter(status=SessionStatus.CLOSED).order_by("date", "start_time")
+    )
+    total_closed = len(closed_sessions)
     
     students = Student.objects.filter(
         enrollments__classroom=classroom
@@ -142,6 +144,7 @@ def get_classroom_attendance_report(classroom):
         rows.append({
             "student": s,
             "records": s_records,
+            "session_statuses": [s_records.get(sess.session_id, "-") for sess in closed_sessions],
             "total_sessions": total_closed,
             "present_count": present_count,
             "late_count": late_count,

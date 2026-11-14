@@ -123,9 +123,9 @@ class Command(BaseCommand):
                 ("CS120", "Capstone Project", 4),
             ]
             courses = []
-            for code, name, credits in course_data:
+            for code, name, _credits in course_data:
                 c, _ = Course.objects.get_or_create(
-                    code=code, defaults={"name": name, "credits": credits}
+                    code=code, defaults={"name": name}
                 )
                 courses.append(c)
 

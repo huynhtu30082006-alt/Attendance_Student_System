@@ -34,12 +34,8 @@
     <tr {% if row.is_warned %}style="background-color: #fff3cd;"{% endif %}>
       <td><strong>{{ row.student.student_id }}</strong></td>
       <td>{{ row.student.full_name }}</td>
-      {% for s in report.sessions %}
-        <td align="center">
-          {% with status=row.records|dictsort:s.session_id %}
-            {{ row.records|default:"-" }}
-          {% endwith %}
-        </td>
+      {% for st in row.session_statuses %}
+        <td align="center">{{ st }}</td>
       {% empty %}
         <td align="center">-</td>
       {% endfor %}
