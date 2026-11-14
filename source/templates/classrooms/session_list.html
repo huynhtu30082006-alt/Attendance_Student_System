@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Sessions</h1>
+{% if sessions %}
+<ul>{% for s in sessions %}<li><a href="{% url 'session_detail' s.pk %}">{{ s.classroom }} - {{ s.date }} {{ s.start_time|time:"H:i" }}</a> - room {{ s.room }} [{{ s.get_status_display }}]</li>{% endfor %}</ul>
+{% else %}<p>There is no session to display.</p>{% endif %}
+{% endblock %}

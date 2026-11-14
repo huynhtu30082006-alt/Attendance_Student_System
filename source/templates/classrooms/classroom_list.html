@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Classrooms</h1>
+{% if can_manage %}<a href="{% url 'classroom_create' %}">+ Create classroom</a>{% endif %}
+{% regroup classrooms by course as groups %}
+{% for g in groups %}
+<h2>{{ g.grouper.code }} - {{ g.grouper.name }}</h2>
+<ul>{% for c in g.list %}<li><a href="{% url 'classroom_detail' c.pk %}">{{ c.name }}</a> - Teacher: {{ c.teacher.full_name|default:"not assigned" }}</li>{% endfor %}</ul>
+{% empty %}<p>There is no classroom to display.</p>{% endfor %}
+{% endblock %}

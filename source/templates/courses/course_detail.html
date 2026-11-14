@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ course.code }} - {{ course.name }}</h1>
+<a href="{% url 'course_update' course.pk %}">Edit</a> <a href="{% url 'course_delete' course.pk %}">Delete</a>
+<h2>Classrooms</h2>
+{% if classrooms %}
+<ul>{% for c in classrooms %}<li><a href="{% url 'classroom_detail' c.pk %}">{{ c.name }}</a></li>{% endfor %}</ul>
+{% else %}<p>This course has no classroom.</p>{% endif %}
+{% endblock %}

@@ -1,6 +1,6 @@
-from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Q
 
 
 class AttendanceStatus(models.TextChoices):
@@ -10,38 +10,44 @@ class AttendanceStatus(models.TextChoices):
 
 
 class AttendanceRecord(models.Model):
-    # PROTECT: lớp/buổi đã có điểm danh thì không xóa được (FR-09)
+    """ERD: AttendanceRecord, composite PK (sessionId, studentId).
+
+    The primary key itself guarantees at most one record per Student per session (NFR Attendance
+    Consistency), also under simultaneous requests. PROTECT on both foreign keys means a session, a
+    classroom (through its sessions) or a Student that has records cannot be deleted (FR-09, FR-06)."""
+
+    pk = models.CompositePrimaryKey("session", "student")
     session = models.ForeignKey(
-        "classrooms.ClassSession", on_delete=models.PROTECT, related_name="records"
+        "classrooms.AttendanceSession", on_delete=models.PROTECT, related_name="records"
     )
     student = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="attendance_records"
+        "accounts.Student", on_delete=models.PROTECT, related_name="attendance_records"
     )
     status = models.CharField(max_length=10, choices=AttendanceStatus.choices)
-    recorded_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        constraints = [
-            # Mỗi SV tối đa 1 bản ghi / buổi (NFR Attendance Consistency)
-            models.UniqueConstraint(
-                fields=["session", "student"], name="unique_record_per_student_session"
-            )
-        ]
 
     def __str__(self):
-        return f"{self.student} - {self.session_id}: {self.status}"
+        return f"{self.student_id} - session {self.session_id}: {self.status}"
 
 
 class Setting(models.Model):
-    """Cấu hình hệ thống, chỉ 1 dòng (pk=1). Dùng Setting.get()."""
+    """System settings, a single row (pk=1). Holds the absence-warning threshold (FR-14).
+    Supporting table, not part of the ERD."""
+
+    DEFAULT_THRESHOLD = 20
 
     absence_threshold = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=20,
+        max_digits=5, decimal_places=2, default=DEFAULT_THRESHOLD,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
-        help_text="Ngưỡng cảnh báo vắng (%)",
+        help_text="Absence warning threshold (%)",
     )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(absence_threshold__gte=0) & Q(absence_threshold__lte=100),
+                name="threshold_between_0_and_100",
+            )
+        ]
 
     def save(self, *args, **kwargs):
         self.pk = 1
@@ -53,4 +59,10 @@ class Setting(models.Model):
         return obj
 
     def __str__(self):
-        return f"Ngưỡng cảnh báo: {self.absence_threshold}%"
+        return f"Warning threshold: {self.absence_threshold}%"
+
+
+def get_absence_threshold():
+    """The single threshold (percent, Decimal) for all classrooms. BE2 uses it for the warnings:
+    a Student has reached it when the absence rate is >= this value."""
+    return Setting.get().absence_threshold

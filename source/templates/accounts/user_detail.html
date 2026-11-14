@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ target.full_name }} ({{ target.username }})</h1>
+<p>Email: {{ target.email }} | Role: {{ target.get_role_display }} | Status: {{ target.get_status_display }}</p>
+{% if target.role == 'STUDENT' %}
+<p>Student ID: {{ target.student_id }} | Phone: {{ target.student_profile.phone_number|default:"-" }} | Gender: {{ target.student_profile.get_gender_display|default:"-" }}</p>
+{% elif target.role == 'TEACHER' %}
+<p>Teacher ID: {{ target.teacher_id }}</p>
+{% endif %}
+<a href="{% url 'user_update' target.pk %}">Edit</a>
+{% if target.is_locked %}<a href="{% url 'user_unlock' target.pk %}">Unlock</a>{% else %}<a href="{% url 'user_lock' target.pk %}">Lock</a>{% endif %}
+<a href="{% url 'user_list' %}">Back to list</a>
+{% endblock %}

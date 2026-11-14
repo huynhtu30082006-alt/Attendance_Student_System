@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ classroom.course.code }} / {{ classroom.name }}</h1>
+<p>Classroom ID: {{ classroom.class_id }} | Teacher: {{ classroom.teacher.full_name|default:"not assigned" }}</p>
+{% if can_manage %}
+<a href="{% url 'classroom_update' classroom.pk %}">Edit</a>
+<a href="{% url 'classroom_delete' classroom.pk %}">Delete</a>
+<a href="{% url 'classroom_assign_teacher' classroom.pk %}">Assign teacher</a>
+<a href="{% url 'classroom_add_students' classroom.pk %}">Add students</a>
+<a href="{% url 'session_create' classroom.pk %}">Add session</a>
+{% endif %}
+{% if enrollments is not None %}
+<h2>Students</h2>
+{% if enrollments %}
+<ul>{% for e in enrollments %}<li>{{ e.student.student_id }} - {{ e.student.full_name }}
+{% if can_manage %}<a href="{% url 'classroom_remove_student' classroom.pk e.student.pk %}">Remove from classroom</a>{% endif %}</li>{% endfor %}</ul>
+{% else %}<p>No Student is enrolled.</p>{% endif %}
+{% endif %}
+<h2>Sessions</h2>
+{% if sessions %}
+<ul>{% for s in sessions %}<li><a href="{% url 'session_detail' s.pk %}">{{ s.date }} {{ s.start_time|time:"H:i" }}</a> - room {{ s.room }} [{{ s.get_status_display }}]
+{% if can_manage and s.is_scheduled %}<a href="{% url 'session_update' s.pk %}">Edit</a> <a href="{% url 'session_cancel' s.pk %}">Cancel</a>{% endif %}</li>{% endfor %}</ul>
+{% else %}<p>This classroom has no session.</p>{% endif %}
+{% endblock %}

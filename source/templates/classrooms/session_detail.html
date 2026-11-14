@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Session {{ session.date }} {{ session.start_time|time:"H:i" }}</h1>
+<p>Classroom: <a href="{% url 'classroom_detail' session.classroom.pk %}">{{ session.classroom.name }}</a> |
+Course: {{ session.classroom.course.code }} - {{ session.classroom.course.name }} |
+Room: {{ session.room }} | Status: {{ session.get_status_display }}</p>
+{% if can_manage and session.is_scheduled %}<a href="{% url 'session_update' session.pk %}">Edit</a> <a href="{% url 'session_cancel' session.pk %}">Cancel</a>{% endif %}
+<a href="{% url 'session_list' %}">Back to list</a>
+{% endblock %}
