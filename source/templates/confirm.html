@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+<p>{{ message }}</p>
+<form method="post">{% csrf_token %}
+  <button type="submit">{{ button }}</button>
+  <a href="{{ cancel_url }}">Go back</a>
+</form>
+{% endblock %}

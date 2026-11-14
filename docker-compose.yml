@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5433:5432"   # cổng 5433 trên máy bạn -> 5432 trong container
+      - "5433:5432"  
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

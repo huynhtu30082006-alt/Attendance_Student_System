@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>{% block title %}Attendance System{% endblock %}</title></head>
+<body>
+{# PLACEHOLDER by BE1: FE replaces this with the real layout. Keep the block names, variable names and URL names. #}
+<nav>
+{% if user.is_authenticated %}
+  {{ user.full_name }} ({{ user.get_role_display }}) |
+  <a href="{% url 'home' %}">Home</a>
+  {% if user.role == 'ADMIN' %}
+    <a href="{% url 'user_list' %}">Accounts</a>
+    <a href="{% url 'course_list' %}">Courses</a>
+    <a href="{% url 'threshold_settings' %}">Warning threshold</a>
+  {% endif %}
+  <a href="{% url 'classroom_list' %}">Classrooms</a>
+  <a href="{% url 'session_list' %}">Sessions</a>
+  <form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button>Log out</button></form>
+{% endif %}
+</nav>
+{% if messages %}<ul>{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+{% block content %}{% endblock %}
+</body>
+</html>
