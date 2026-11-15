@@ -1,20 +1,19 @@
 {% extends "base.html" %}
+{% block title %}Home{% endblock %}
 {% block content %}
-<h1>Welcome, {{ user.full_name }}</h1>
-<p>Role: {{ user.get_role_display }}</p>
-<ul>
-{% if role == 'ADMIN' %}
-  <li><a href="{% url 'user_list' %}">Manage accounts</a></li>
-  <li><a href="{% url 'course_list' %}">Manage courses</a></li>
-  <li><a href="{% url 'classroom_list' %}">Manage classrooms</a></li>
-  <li><a href="{% url 'session_list' %}">Sessions</a></li>
-  <li><a href="{% url 'threshold_settings' %}">Absence warning threshold</a></li>
-{% elif role == 'TEACHER' %}
-  <li><a href="{% url 'classroom_list' %}">My classrooms</a></li>
-  <li><a href="{% url 'session_list' %}">Session schedule</a></li>
-{% else %}
-  <li><a href="{% url 'classroom_list' %}">My classrooms</a></li>
-  <li><a href="{% url 'session_list' %}">Session schedule</a></li>
-{% endif %}
-</ul>
+<h1 class="page-title">Welcome, {{ user.full_name|default:user.username }}!</h1>
+<div class="page-sub mb-4">Role: {% include 'components/role_badge.html' with role=user.role %}</div>
+
+<div class="row g-3">
+  {% if role == 'ADMIN' %}
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'user_list' %}"><div class="card-panel h-100"><i class="bi bi-people fs-3"></i><div class="fw-semibold mt-2">Accounts</div><div class="text-secondary small">Manage admin, teacher and student accounts</div></div></a></div>
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'course_list' %}"><div class="card-panel h-100"><i class="bi bi-book fs-3"></i><div class="fw-semibold mt-2">Courses</div><div class="text-secondary small">Add, edit and delete courses</div></div></a></div>
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'classroom_list' %}"><div class="card-panel h-100"><i class="bi bi-mortarboard fs-3"></i><div class="fw-semibold mt-2">Classrooms</div><div class="text-secondary small">Classrooms, teachers and students</div></div></a></div>
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'session_list' %}"><div class="card-panel h-100"><i class="bi bi-calendar-event fs-3"></i><div class="fw-semibold mt-2">Sessions</div><div class="text-secondary small">Schedule and manage class sessions</div></div></a></div>
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'threshold_settings' %}"><div class="card-panel h-100"><i class="bi bi-gear fs-3"></i><div class="fw-semibold mt-2">Warning threshold</div><div class="text-secondary small">Absence rate that triggers a warning</div></div></a></div>
+  {% else %}
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'classroom_list' %}"><div class="card-panel h-100"><i class="bi bi-mortarboard fs-3"></i><div class="fw-semibold mt-2">My classrooms</div><div class="text-secondary small">View your classrooms</div></div></a></div>
+  <div class="col-md-4"><a class="text-decoration-none" href="{% url 'session_list' %}"><div class="card-panel h-100"><i class="bi bi-calendar-event fs-3"></i><div class="fw-semibold mt-2">Session schedule</div><div class="text-secondary small">Upcoming and past sessions</div></div></a></div>
+  {% endif %}
+</div>
 {% endblock %}
