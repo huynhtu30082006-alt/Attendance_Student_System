@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+  .stat-card{background:var(--card-bg);border:1px solid #e2e8f0;border-radius:.75rem;padding:1.1rem;text-align:center}
+  .stat-card .num{font-size:1.9rem;font-weight:700;color:var(--navy-800);line-height:1.1}
+  .stat-card .lbl{font-size:.8rem;color:var(--muted)}
+  .dark-panel{background:var(--navy-800);color:#fff;border-radius:.75rem;padding:1.25rem;height:100%}
+  .dark-panel h2{font-size:1rem;font-weight:700;margin-bottom:1rem}
+  .bar-chart{display:flex;align-items:flex-end;gap:.9rem;height:180px;padding-top:1.25rem}
+  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .bar-col .bar{width:100%;max-width:34px;background:var(--brand);border-radius:6px 6px 0 0;min-height:2px}
+  .bar-col .val{font-size:.72rem;color:#cbd5f5;margin-bottom:.25rem}
+  .bar-col .day{font-size:.75rem;color:#8a97b2;margin-top:.4rem}
+  .attn-item{display:flex;gap:.6rem;align-items:flex-start;font-size:.88rem;margin-bottom:.85rem}
+  .attn-item i{color:#fbbf24;margin-top:.15rem}
+</style>
+{% endblock %}
+
+{% block content %}
+{# Context contract for BE2: stats{students,teachers,classrooms,attendance_rate}, weekly[{label,value}], attention{at_risk_count,open_sessions,unassigned_classes}, export_excel_url, export_pdf_url #}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <div class="page-sub">System-wide attendance overview</div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if export_excel_url %}<a href="{{ export_excel_url }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-excel"></i> Export Excel</a>{% endif %}
+    {% if export_pdf_url %}<a href="{{ export_pdf_url }}" class="btn btn-brand"><i class="bi bi-file-earmark-pdf"></i> Export PDF</a>{% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="stat-card"><div class="num">{{ stats.students|default:0 }}</div><div class="lbl">Students</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-card"><div class="num">{{ stats.teachers|default:0 }}</div><div class="lbl">Teachers</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-card"><div class="num">{{ stats.classrooms|default:0 }}</div><div class="lbl">Classrooms</div></div></div>
+  <div class="col-6 col-lg-3"><div class="stat-card"><div class="num">{{ stats.attendance_rate|default:0 }}%</div><div class="lbl">Attendance rate</div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <section class="dark-panel" aria-labelledby="overviewTitle">
+      <h2 id="overviewTitle">Attendance overview</h2>
+      {% if weekly %}
+      <div class="bar-chart" role="img" aria-label="Attendance rate by weekday">
+        {% for w in weekly %}
+        <div class="bar-col"><div class="val">{{ w.value }}%</div><div class="bar" style="height:{{ w.value }}%"></div><div class="day">{{ w.label }}</div></div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-center py-5" style="color:#8a97b2">There is no attendance data yet.</div>
+      {% endif %}
+    </section>
+  </div>
+  <div class="col-lg-5">
+    <section class="dark-panel" aria-labelledby="attnTitle">
+      <h2 id="attnTitle">Needs attention</h2>
+      <div class="attn-item"><i class="bi bi-exclamation-triangle-fill"></i><span><strong>{{ attention.at_risk_count|default:0 }}</strong> Students have reached the warning threshold</span></div>
+      <div class="attn-item"><i class="bi bi-unlock-fill"></i><span><strong>{{ attention.open_sessions|default:0 }}</strong> sessions are open</span></div>
+      <div class="attn-item"><i class="bi bi-person-dash-fill"></i><span><strong>{{ attention.unassigned_classes|default:0 }}</strong> classrooms have no Teacher</span></div>
+      <a href="{% url 'threshold_settings' %}" class="btn btn-sm btn-outline-light mt-2"><i class="bi bi-gear"></i> Warning threshold</a>
+    </section>
+  </div>
+</div>
+{% endblock %}
