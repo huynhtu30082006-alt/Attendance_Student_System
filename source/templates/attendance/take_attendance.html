@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Take Attendance: {{ session.classroom.name }}</h1>
+<p>
+  <strong>Date:</strong> {{ session.date }} {{ session.start_time|time:"H:i" }} |
+  <strong>Room:</strong> {{ session.room }} |
+  <strong>Status:</strong> {{ session.get_status_display }}
+</p>
+
+<form method="post">
+  {% csrf_token %}
+  <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; margin-top: 15px;">
+    <thead>
+      <tr style="background: #f1f5f9;">
+        <th>Student ID</th>
+        <th>Full Name</th>
+        <th>Attendance Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in student_rows %}
+      <tr>
+        <td>{{ row.student.student_id }}</td>
+        <td>{{ row.student.full_name }}</td>
+        <td>
+          {% for val, label in status_choices %}
+            <label style="margin-right: 15px;">
+              <input type="radio" name="status_{{ row.student.student_id }}" value="{{ val }}" {% if row.status == val %}checked{% endif %}>
+              {{ label }}
+            </label>
+          {% endfor %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="3">No students are currently enrolled in this classroom.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div style="margin-top: 20px;">
+    <button type="submit" name="action" value="save">Save Attendance</button>
+    <button type="submit" name="action" value="close" onclick="return confirm('Finalize and close this session? Unrecorded students will be marked Absent.');">Close Session & Finalize</button>
+    <a href="{% url 'session_detail' session.pk %}" style="margin-left: 15px;">Cancel</a>
+  </div>
+</form>
+{% endblock %}

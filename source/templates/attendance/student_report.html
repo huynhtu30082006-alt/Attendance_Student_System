@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>My Attendance: {{ classroom.course.code }} - {{ classroom.name }}</h1>
+<p>
+  <strong>Student ID:</strong> {{ summary.student.student_id }} |
+  <strong>Student:</strong> {{ summary.student.full_name }} |
+  <strong>Teacher:</strong> {{ classroom.teacher.full_name|default:"Not assigned" }}
+</p>
+
+<div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+  <h3>Overview</h3>
+  <ul>
+    <li>Total Closed Sessions: <strong>{{ summary.total_sessions }}</strong></li>
+    <li>Present: <strong>{{ summary.present_count }}</strong></li>
+    <li>Late: <strong>{{ summary.late_count }}</strong></li>
+    <li>Absent: <strong>{{ summary.absent_count }}</strong></li>
+    <li>Absence Rate: <strong>{{ summary.absence_rate }}%</strong> (Warning threshold: {{ threshold }}%)</li>
+    <li>
+      Status:
+      {% if summary.is_warned %}
+        <span style="color: #dc3545; font-weight: bold;">⚠️ Warning: Your absence rate has reached or exceeded {{ threshold }}%!</span>
+      {% else %}
+        <span style="color: #198754; font-weight: bold;">Good Standing</span>
+      {% endif %}
+    </li>
+  </ul>
+</div>
+
+<h3>Attendance Details per Session</h3>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+  <thead>
+    <tr style="background: #f1f5f9;">
+      <th>Date</th>
+      <th>Time</th>
+      <th>Room</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in summary.records %}
+    <tr>
+      <td>{{ r.session.date }}</td>
+      <td>{{ r.session.start_time|time:"H:i" }}</td>
+      <td>{{ r.session.room }}</td>
+      <td><strong>{{ r.get_status_display }}</strong></td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="4">No attendance records found yet.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p style="margin-top: 15px;">
+  <a href="{% url 'classroom_detail' classroom.pk %}">Back to Classroom</a>
+</p>
+{% endblock %}

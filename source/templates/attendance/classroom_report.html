@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Attendance Report: {{ classroom.course.code }} - {{ classroom.name }}</h1>
+<p>
+  <strong>Class ID:</strong> {{ classroom.class_id }} |
+  <strong>Teacher:</strong> {{ classroom.teacher.full_name|default:"Not assigned" }} |
+  <strong>Warning Threshold:</strong> <span style="color: #dc3545; font-weight: bold;">{{ report.threshold }}%</span>
+</p>
+
+<div style="margin-bottom: 15px;">
+  <a href="{% url 'export_attendance_csv' classroom.pk %}">📥 Export CSV</a> |
+  <a href="{% url 'classroom_detail' classroom.pk %}">Back to Classroom</a>
+</div>
+
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 0.9em;">
+  <thead>
+    <tr style="background: #f1f5f9;">
+      <th>Student ID</th>
+      <th>Full Name</th>
+      {% for s in report.sessions %}
+        <th>{{ s.date|date:"d/m" }}<br>{{ s.start_time|time:"H:i" }}</th>
+      {% empty %}
+        <th>No closed sessions</th>
+      {% endfor %}
+      <th>Present</th>
+      <th>Late</th>
+      <th>Absent</th>
+      <th>Absence Rate</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in report.rows %}
+    <tr {% if row.is_warned %}style="background-color: #fff3cd;"{% endif %}>
+      <td><strong>{{ row.student.student_id }}</strong></td>
+      <td>{{ row.student.full_name }}</td>
+      {% for st in row.session_statuses %}
+        <td align="center">{{ st }}</td>
+      {% empty %}
+        <td align="center">-</td>
+      {% endfor %}
+      <td align="center">{{ row.present_count }}</td>
+      <td align="center">{{ row.late_count }}</td>
+      <td align="center">{{ row.absent_count }}</td>
+      <td align="center"><strong>{{ row.absence_rate }}%</strong></td>
+      <td align="center">
+        {% if row.is_warned %}
+          <span style="color: #b02a37; font-weight: bold;">⚠️ High Absence</span>
+        {% else %}
+          <span style="color: #198754;">Normal</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="10">No students enrolled in this classroom.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
