@@ -83,6 +83,31 @@ def close_session(session: AttendanceSession, attendance_data: dict = None):
         return locked_session
 
 
+def update_closed_attendance(session: AttendanceSession, attendance_data: dict):
+    """Update a complete set of attendance statuses for an already closed session."""
+    with transaction.atomic():
+        locked_session = AttendanceSession.objects.select_for_update().get(pk=session.pk)
+        if locked_session.status != SessionStatus.CLOSED:
+            raise ValidationError("Only a CLOSED session can be edited.")
+
+        valid_statuses = set(AttendanceStatus.values)
+        enrolled_student_ids = set(
+            Student.objects.filter(enrollments__classroom=locked_session.classroom)
+            .values_list("student_id", flat=True)
+        )
+        if set(attendance_data) != enrolled_student_ids:
+            raise ValidationError("Attendance must be supplied for every enrolled student.")
+
+        for student_id, status in attendance_data.items():
+            if status not in valid_statuses:
+                raise ValidationError(f"Invalid attendance status: {status}")
+            AttendanceRecord.objects.update_or_create(
+                session=locked_session,
+                student_id=student_id,
+                defaults={"status": status},
+            )
+
+
 def get_classroom_attendance_report(classroom):
     """Compute attendance matrix and absence summary for a classroom.
     

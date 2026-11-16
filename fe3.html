@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attendance System – FE3 Preview</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; background: #f4f7fb; color: #172033; height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── TOP TAB BAR ── */
+    .tab-bar { display: flex; gap: 6px; padding: 10px 16px; background: #fff; border-bottom: 1px solid #e8edf5; }
+    .tab { padding: 8px 18px; border-radius: 8px; border: 1px solid #e8edf5; cursor: pointer; font-size: 13px; font-weight: 600; color: #64748b; background: #f8faff; transition: all .15s; }
+    .tab.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .tab:hover:not(.active) { background: #eef3fb; }
+
+    /* ── SHELL ── */
+    .shell { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── SIDEBAR ── */
+    .sidebar { width: 220px; flex: 0 0 220px; background: linear-gradient(180deg,#101d3a,#0b1530); color: #fff; display: flex; flex-direction: column; padding: 22px 13px; }
+    .brand { display: flex; align-items: center; gap: 11px; margin-bottom: 36px; }
+    .brand-mark { width: 36px; height: 36px; border-radius: 11px; background: #3478f6; display: grid; place-items: center; font-weight: 800; font-size: 17px; }
+    .brand-name { font-weight: 700; font-size: 15px; }
+    .brand-sub { display: block; font-size: 9px; letter-spacing: 1.3px; color: #9aabc9; margin-top: 2px; }
+    .side-label { font-size: 9px; letter-spacing: 1.5px; color: #7f91b3; padding: 0 10px 10px; }
+    .side-link { display: flex; align-items: center; gap: 12px; padding: 11px 12px; margin: 2px 0; border-radius: 9px; color: #c3cee2; text-decoration: none; font-size: 13px; cursor: pointer; transition: background .15s; }
+    .side-link:hover, .side-link.active { background: #2455ad; color: #fff; }
+    .sidebar-bottom { margin-top: auto; border-top: 1px solid #2a3b5c; padding: 15px 4px 0; display: flex; align-items: center; gap: 9px; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; background: #3169d2; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+    .avatar-info strong { display: block; font-size: 12px; }
+    .avatar-info small { color: #91a2c1; font-size: 10px; }
+
+    /* ── MAIN ── */
+    .main { flex: 1; overflow-y: auto; padding: 24px 28px; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+    .eyebrow { font-size: 9px; letter-spacing: 1.6px; color: #8a96aa; }
+    .topbar h1 { font-size: 24px; font-weight: 800; margin: 3px 0 0; }
+    .role-pill { background: #eaf1ff; color: #2458bd; border-radius: 20px; padding: 6px 12px; font-size: 11px; font-weight: 700; }
+    .welcome { color: #647087; margin-bottom: 18px; font-size: 13px; }
+
+    /* ── CARDS ── */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 13px; margin-bottom: 18px; }
+    .stat-card { background: #fff; border: 1px solid #e8edf5; border-radius: 13px; padding: 18px; box-shadow: 0 2px 10px #182b4b06; }
+    .stat-card span { display: block; color: #758197; font-size: 11px; }
+    .stat-card strong { display: block; font-size: 28px; font-weight: 800; margin: 7px 0 3px; color: #172b50; }
+    .stat-card small { color: #8993a5; font-size: 11px; }
+
+    /* ── PANELS ── */
+    .panel { background: #fff; border: 1px solid #e8edf5; border-radius: 13px; padding: 20px; box-shadow: 0 2px 10px #182b4b06; margin-bottom: 16px; }
+    .panel-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .panel-heading h2 { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
+    .panel-heading p { font-size: 11px; color: #8791a3; margin: 0; }
+    .btn-primary { background: #2563eb; color: #fff; border-radius: 8px; padding: 8px 13px; text-decoration: none; font-size: 12px; font-weight: 650; border: 0; cursor: pointer; }
+    .btn-light { background: #eef3fb; color: #2b4c83; border-radius: 8px; padding: 8px 13px; font-size: 12px; font-weight: 650; border: 0; cursor: pointer; }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { font-size: 10px; color: #8a94a6; text-transform: uppercase; letter-spacing: .5px; background: #f8faff; padding: 11px 12px; border-bottom: 1px solid #edf0f5; text-align: left; white-space: nowrap; }
+    td { padding: 11px 12px; border-bottom: 1px solid #edf0f5; white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    .table-action { color: #245fd0; text-decoration: none; font-weight: 650; cursor: pointer; }
+    .empty-row { color: #8b95a5; text-align: center; padding: 24px; }
+
+    /* ── BADGES ── */
+    .badge { display: inline-block; border-radius: 20px; padding: 4px 9px; font-size: 10px; font-weight: 700; }
+    .badge-open    { background: #fff4d9; color: #a36b00; }
+    .badge-scheduled { background: #eaf1ff; color: #285dc4; }
+    .badge-closed  { background: #e5f8ee; color: #16834b; }
+    .badge-present { background: #e5f8ee; color: #16834b; }
+    .badge-late    { background: #fff4d9; color: #a36b00; }
+    .badge-absent  { background: #ffebeb; color: #c43b43; }
+    .badge-danger  { background: #ffebeb; color: #c43b43; }
+    .badge-ok      { background: #e5f8ee; color: #16834b; }
+
+    /* ── CLASS GRID ── */
+    .class-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 12px; }
+    .class-card { background: #fff; border: 1px solid #e8edf5; border-radius: 13px; padding: 16px; box-shadow: 0 2px 10px #182b4b06; }
+    .course-code { background: #eaf1ff; color: #2458bd; border-radius: 20px; padding: 4px 10px; font-size: 10px; font-weight: 700; }
+    .class-card h3 { font-size: 14px; margin: 11px 0 4px; }
+    .class-card p  { font-size: 11px; color: #7d8799; margin-bottom: 11px; }
+    .class-card small { color: #8993a5; font-size: 11px; }
+
+    /* ── WARNING ── */
+    .warning-banner { background: #fff5df; border: 1px solid #ffe2a6; border-left: 4px solid #efa927; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; color: #795515; }
+    .warning-banner p { font-size: 12px; margin: 5px 0 0; }
+
+    /* ── REPORT SUMMARY ── */
+    .report-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 11px; margin: 14px 0; }
+    .report-cell { background: #f7f9fd; border: 1px solid #e8edf5; border-radius: 10px; padding: 13px; }
+    .report-cell span { display: block; color: #778197; font-size: 11px; margin-bottom: 4px; }
+    .report-cell strong { font-size: 15px; }
+
+    /* ── PAGE VISIBILITY ── */
+    .page { display: none; }
+    .page.active { display: block; }
+    .role-view { display: none; }
+    .role-view.active { display: flex; flex: 1; overflow: hidden; }
+  </style>
+</head>
+<body>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <button class="tab active" onclick="switchRole('teacher')">👨‍🏫 Teacher View</button>
+  <button class="tab" onclick="switchRole('student')">👨‍🎓 Student View</button>
+</div>
+
+<!-- ═══════════ TEACHER VIEW ═══════════ -->
+<div class="role-view active" id="view-teacher">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div class="brand-name">Attendance<span class="brand-sub">MANAGEMENT SYSTEM</span></div>
+    </div>
+    <div class="side-label">WORKSPACE</div>
+    <div class="side-link active" onclick="showPage('t','teacher-dashboard',this)">▦ Dashboard</div>
+    <div class="side-link" onclick="showPage('t','teacher-classes',this)">▤ My Classes</div>
+    <div class="side-link" onclick="showPage('t','teacher-attendance',this)">✎ Take Attendance</div>
+    <div class="side-link" onclick="showPage('t','teacher-reports',this)">▥ Class Reports</div>
+    <div class="side-link" onclick="showPage('t','teacher-warnings',this)">⚑ Warnings</div>
+    <div class="sidebar-bottom">
+      <div class="avatar">N</div>
+      <div class="avatar-info"><strong>Nguyễn Văn A</strong><small>Teacher</small></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- TEACHER DASHBOARD -->
+    <div class="page active" id="t-teacher-dashboard">
+      <div class="topbar"><div><div class="eyebrow">ATTENDANCE SYSTEM</div><h1>Teacher Dashboard</h1></div><span class="role-pill">Teacher</span></div>
+      <p class="welcome">Welcome back, Nguyễn Văn A. Here is your teaching overview.</p>
+      <div class="stat-grid">
+        <div class="stat-card"><span>Teaching Classes</span><strong>3</strong><small>Assigned classes</small></div>
+        <div class="stat-card"><span>Total Students</span><strong>72</strong><small>Across your classes</small></div>
+        <div class="stat-card"><span>Open Sessions</span><strong>1</strong><small>Currently active</small></div>
+      </div>
+      <div class="panel">
+        <div class="panel-heading"><div><h2>Upcoming &amp; Recent Sessions</h2><p>Manage attendance for your classes</p></div><button class="btn-primary" onclick="showPage('t','teacher-classes',document.querySelector('#view-teacher .side-link:nth-child(3)'))">View Classes</button></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Class</th><th>Course</th><th>Date</th><th>Time</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td>SE1 – Group A</td><td>SE101</td><td>15 Nov 2026</td><td>07:30</td><td><span class="badge badge-open">Open</span></td><td><span class="table-action" onclick="showPage('t','teacher-attendance',null)">Take attendance</span></td></tr>
+            <tr><td>SE1 – Group B</td><td>SE101</td><td>16 Nov 2026</td><td>09:30</td><td><span class="badge badge-scheduled">Scheduled</span></td><td><span class="table-action">Take attendance</span></td></tr>
+            <tr><td>DB2 – Class C</td><td>DB201</td><td>14 Nov 2026</td><td>13:00</td><td><span class="badge badge-closed">Closed</span></td><td><span class="table-action">View</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- TEACHER CLASSES -->
+    <div class="page" id="t-teacher-classes">
+      <div class="topbar"><div><div class="eyebrow">ATTENDANCE SYSTEM</div><h1>My Classes</h1></div><span class="role-pill">Teacher</span></div>
+      <p class="welcome">Your assigned teaching classes.</p>
+      <div class="class-grid">
+        <div class="class-card"><span class="course-code">SE101</span><h3>SE1 – Group A</h3><p>Software Engineering</p><small>24 students · 8 sessions</small></div>
+        <div class="class-card"><span class="course-code">SE101</span><h3>SE1 – Group B</h3><p>Software Engineering</p><small>25 students · 8 sessions</small></div>
+        <div class="class-card"><span class="course-code">DB201</span><h3>DB2 – Class C</h3><p>Database Systems</p><small>23 students · 10 sessions</small></div>
+      </div>
+    </div>
+
+    <!-- TEACHER ATTENDANCE -->
+    <div class="page" id="t-teacher-attendance">
+      <div class="topbar"><div><div class="eyebrow">ATTENDANCE SYSTEM</div><h1>Take Attendance</h1></div><span class="role-pill">Teacher</span></div>
+      <div class="panel" style="margin-bottom:14px;">
+        <div style="font-size:11px;color:#8a96aa;">SE101 · Group A</div>
+        <h2 style="font-size:17px;margin:7px 0 4px;">Session – 15 Nov 2026</h2>
+        <p style="font-size:12px;color:#778197;margin-bottom:10px;">07:30 · Room B201 · <span class="badge badge-open">Open</span></p>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-primary">✓ Bulk Mark Present</button>
+          <button class="btn-light">Save Attendance</button>
+          <button class="btn-light" style="margin-left:auto;background:#fff0f0;color:#a42f37;">Close Session</button>
+        </div>
+      </div>
+      <div class="panel">
+        <table>
+          <thead><tr><th>#</th><th>Student</th><th>MSSV</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Nguyễn Thị B</td><td>2251234</td><td><span class="badge badge-present">Present</span></td></tr>
+            <tr><td>2</td><td>Trần Văn C</td><td>2251235</td><td><span class="badge badge-late">Late</span></td></tr>
+            <tr><td>3</td><td>Lê Thị D</td><td>2251236</td><td><span class="badge badge-absent">Absent</span></td></tr>
+            <tr><td>4</td><td>Phạm Văn E</td><td>2251237</td><td><span class="badge badge-present">Present</span></td></tr>
+            <tr><td>5</td><td>Hoàng Thị F</td><td>2251238</td><td><span class="badge badge-present">Present</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TEACHER REPORTS -->
+    <div class="page" id="t-teacher-reports">
+      <div class="topbar"><div><div class="eyebrow">ATTENDANCE SYSTEM</div><h1>Class Reports</h1></div><span class="role-pill">Teacher</span></div>
+      <div class="panel">
+        <div class="panel-heading"><div><h2>SE1 – Group A · SE101</h2><p>Attendance summary across all sessions</p></div><div style="display:flex;gap:8px;"><button class="btn-light">Export CSV</button><button class="btn-light">🖨 Print</button></div></div>
+        <div class="report-grid">
+          <div class="report-cell"><span>Present</span><strong>45</strong></div>
+          <div class="report-cell"><span>Late</span><strong>8</strong></div>
+          <div class="report-cell"><span>Absent</span><strong>5</strong></div>
+        </div>
+        <div class="warning-banner"><strong>⚠ Attendance Warning</strong><p>1 student has exceeded the absence threshold of 20%.</p></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Student</th><th>Present</th><th>Late</th><th>Absent</th><th>Absence Rate</th></tr></thead>
+          <tbody>
+            <tr><td>Nguyễn Thị B</td><td>8</td><td>0</td><td>0</td><td><span class="badge badge-ok">0%</span></td></tr>
+            <tr><td>Trần Văn C</td><td>5</td><td>2</td><td>1</td><td><span class="badge badge-ok">12%</span></td></tr>
+            <tr><td>Lê Thị D</td><td>4</td><td>1</td><td>3</td><td><span class="badge badge-danger">35%</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- TEACHER WARNINGS -->
+    <div class="page" id="t-teacher-warnings">
+      <div class="topbar"><div><div class="eyebrow">ATTENDANCE SYSTEM</div><h1>Warnings</h1></div><span class="role-pill">Teacher</span></div>
+      <div class="panel">
+        <div class="panel-heading"><div><h2>⚑ Students At Risk</h2><p>Students who exceeded the 20% absence threshold</p></div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Student</th><th>MSSV</th><th>Class</th><th>Course</th><th>Absence Rate</th></tr></thead>
+          <tbody>
+            <tr><td>Lê Thị D</td><td>2251236</td><td>SE1 – Group A</td><td>SE101</td><td><span class="badge badge-danger">35%</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════ STUDENT VIEW ═══════════ -->
+<div class="role-view" id="view-student">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div class="brand-name">Attendance<span class="brand-sub">MANAGEMENT SYSTEM</span></div>
+    </div>
+    <div class="side-label">WORKSPACE</div>
+    <div class="side-link active" onclick="showPage('s','student-dashboard',this)">▦ Dashboard</div>
+    <div class="side-link" onclick="showPage('s','student-courses',this)">▤ My Courses</div>
+    <div class="side-link" onclick="showPage('s','student-history',this)">◷ Attendance History</div>
+    <div class="sidebar-bottom">
+      <div class="avatar">T</div>
+      <div class="avatar-info"><strong>Trần Văn C</strong><small>Student</small></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- STUDENT DASHBOARD -->
+    <div class="page active" id="s-student-dashboard">
+      <div class="topbar"><div><div class="eyebrow">ATTENDANCE SYSTEM</div><h1>Student Dashboard</h1></div><span class="role-pill">Student</span></div>
+      <p class="welcome">Welcome back, Trần Văn C. Track your classes and attendance.</p>
+      <div class="warning-banner"><strong>⚠ Attendance Warning</strong><p>Your absence rate is 25%, which has reached the system threshold of 20%. Please attend upcoming classes.</p></div>
+      <div class="stat-grid">
+        <div class="stat-card"><span>Enrolled Classes</span><strong>3</strong><small>Current classes</small></div>
+        <div class="stat-card"><span>Present / Late</span><strong>18</strong><small>Recorded sessions</small></div>
+        <div class="stat-card"><span>Absent Sessions</span><strong>6</strong><small>Recorded absences</small></div>
+        <div class="stat-card"><span>Absence Rate</span><strong style="color:#c43b43;">25%</strong><small>Warning threshold 20%</small></div>
+      </div>
+      <div class="panel">
+        <div class="panel-heading"><div><h2>My Classes</h2><p>Your current enrolled classes</p></div><button class="btn-primary" onclick="showPage('s','student-courses',null)">View Courses</button></div>
+        <div class="class-grid">
+          <div class="class-card"><span class="course-code">SE101</span><h3>SE1 – Group A</h3><p>Software Engineering</p><small>Teacher: Nguyễn Văn A</small></div>
+          <div class="class-card"><span class="course-code">DB201</span><h3>DB2 – Class C</h3><p>Database Systems</p><small>Teacher: Lê Văn E</small></div>
+          <div class="class-card"><span class="course-code">CN301</span><h3>CN3 – Group B</h3><p>Computer Networks</p><small>Teacher: Phạm Thị F</small></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-heading"><div><h2>Upcoming Class Schedule</h2><p>Scheduled and currently open sessions</p></div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Date</th><th>Time</th><th>Course</th><th>Class</th><th>Room</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>15 Nov 2026</td><td>07:30</td><td>SE101</td><td>SE1 – Group A</td><td>B201</td><td><span class="badge badge-open">Open</span></td></tr>
+            <tr><td>16 Nov 2026</td><td>09:30</td><td>DB201</td><td>DB2 – Class C</td><td>A305</td><td><span class="badge badge-scheduled">Scheduled</span></td></tr>
+            <tr><td>17 Nov 2026</td><td>13:00</td><td>CN301</td><td>CN3 – Group B</td><td>C102</td><td><span class="badge badge-scheduled">Scheduled</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- STUDENT COURSES -->
+    <div class="page" id="s-student-courses">
+      <div class="topbar"><div><div class="eyebrow">ATTENDANCE SYSTEM</div><h1>My Courses</h1></div><span class="role-pill">Student</span></div>
+      <div class="panel">
+        <div class="panel-heading"><div><h2>Enrolled Courses</h2><p>Attendance summary per course</p></div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Course Code</th><th>Course Name</th><th>Class</th><th>Present</th><th>Late</th><th>Absent</th><th>Absence Rate</th></tr></thead>
+          <tbody>
+            <tr><td>SE101</td><td>Software Engineering</td><td>SE1 – Group A</td><td>8</td><td>0</td><td>2</td><td><span class="badge badge-danger">20%</span></td></tr>
+            <tr><td>DB201</td><td>Database Systems</td><td>DB2 – Class C</td><td>7</td><td>1</td><td>1</td><td><span class="badge badge-ok">12%</span></td></tr>
+            <tr><td>CN301</td><td>Computer Networks</td><td>CN3 – Group B</td><td>5</td><td>1</td><td>3</td><td><span class="badge badge-danger">33%</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- STUDENT HISTORY -->
+    <div class="page" id="s-student-history">
+      <div class="topbar"><div><div class="eyebrow">ATTENDANCE SYSTEM</div><h1>Attendance History</h1></div><span class="role-pill">Student</span></div>
+      <div class="panel">
+        <div class="panel-heading"><div><h2>◷ All Attendance Records</h2><p>Your personal attendance history</p></div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Date</th><th>Time</th><th>Course</th><th>Class</th><th>Room</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>15 Nov 2026</td><td>07:30</td><td>SE101</td><td>SE1 – Group A</td><td>B201</td><td><span class="badge badge-late">Late</span></td></tr>
+            <tr><td>14 Nov 2026</td><td>13:00</td><td>DB201</td><td>DB2 – Class C</td><td>A305</td><td><span class="badge badge-present">Present</span></td></tr>
+            <tr><td>13 Nov 2026</td><td>09:30</td><td>CN301</td><td>CN3 – Group B</td><td>C102</td><td><span class="badge badge-absent">Absent</span></td></tr>
+            <tr><td>12 Nov 2026</td><td>07:30</td><td>SE101</td><td>SE1 – Group A</td><td>B201</td><td><span class="badge badge-present">Present</span></td></tr>
+            <tr><td>11 Nov 2026</td><td>13:00</td><td>DB201</td><td>DB2 – Class C</td><td>A305</td><td><span class="badge badge-present">Present</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+
+  function switchRole(role) {
+    document.querySelectorAll('.role-view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + role).classList.add('active');
+    tabs.forEach(t => t.classList.remove('active'));
+    tabs[role === 'teacher' ? 0 : 1].classList.add('active');
+  }
+
+  function showPage(role, pageId, navEl) {
+    const prefix = role === 't' ? 't-' : 's-';
+    document.querySelectorAll('#view-' + (role==='t'?'teacher':'student') + ' .page')
+      .forEach(p => p.classList.remove('active'));
+    document.getElementById(prefix + pageId).classList.add('active');
+
+    if (navEl) {
+      document.querySelectorAll('#view-' + (role==='t'?'teacher':'student') + ' .side-link')
+        .forEach(l => l.classList.remove('active'));
+      navEl.classList.add('active');
+    }
+  }
+</script>
+</body>
+</html>

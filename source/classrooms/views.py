@@ -22,7 +22,7 @@ HAS_RECORDS = "This classroom already has attendance records and cannot be delet
 # ---------- View (all roles, each limited to their own data: task 2) ----------
 @login_required
 def classroom_list(request):
-    return render(request, "classrooms/classroom_list.html", {
+    return render(request, "teacher/classroom_list.html", {
         "classrooms": classrooms_for(request.user),  # ordered by course, then name (grouped by course in the page)
         "can_manage": request.user.role == Role.ADMIN,
     })
@@ -31,7 +31,7 @@ def classroom_list(request):
 @classroom_scoped
 def classroom_detail(request, classroom):
     is_student = request.user.role == Role.STUDENT
-    return render(request, "classrooms/classroom_detail.html", {
+    return render(request, "teacher/classroom_detail.html", {
         "classroom": classroom,
         "can_manage": request.user.role == Role.ADMIN,
         # A Student must not see the other Students (Data Privacy)

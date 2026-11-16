@@ -1,23 +1,275 @@
 <!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><title>{% block title %}Attendance System{% endblock %}</title></head>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Student Attendance System{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bs-primary: #2563eb;
+      --bs-primary-rgb: 37, 99, 235;
+      --page-bg: #f4f7fb;
+      --line: #e8edf5;
+      --ink: #172033;
+      --muted: #758197;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      background: var(--page-bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+    }
+
+    .app-shell { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 220px;
+      flex: 0 0 220px;
+      min-height: 100vh;
+      padding: 22px 13px;
+      display: flex;
+      flex-direction: column;
+      color: #fff;
+      background: linear-gradient(180deg, #101d3a, #0b1530);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; margin: 0 5px 36px; }
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      flex: 0 0 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      background: #3478f6;
+      color: #fff;
+      font-size: 17px;
+      font-weight: 800;
+    }
+    .brand-name { font-size: 15px; font-weight: 700; line-height: 1.15; }
+    .brand-sub {
+      display: block;
+      margin-top: 3px;
+      color: #9aabc9;
+      font-size: 9px;
+      letter-spacing: 1.3px;
+    }
+    .side-label {
+      padding: 0 10px 10px;
+      color: #7f91b3;
+      font-size: 9px;
+      letter-spacing: 1.5px;
+    }
+    .side-nav { display: grid; gap: 2px; }
+    .side-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 2px 0;
+      padding: 11px 12px;
+      border-radius: 9px;
+      color: #c3cee2;
+      font-size: 13px;
+      text-decoration: none;
+      transition: background .15s, color .15s;
+    }
+    .side-link i { width: 16px; text-align: center; font-size: 15px; }
+    .side-link:hover, .side-link.active { background: #2455ad; color: #fff; }
+    .side-label-spaced { margin-top: 19px; }
+    .sidebar-bottom {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: auto;
+      padding: 15px 4px 0;
+      border-top: 1px solid #2a3b5c;
+    }
+    .avatar {
+      width: 32px;
+      height: 32px;
+      flex: 0 0 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #3169d2;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .avatar-info { min-width: 0; flex: 1; }
+    .avatar-info strong {
+      display: block;
+      overflow: hidden;
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .avatar-info small { color: #91a2c1; font-size: 10px; }
+    .sidebar-logout { padding: 4px; color: #91a2c1; }
+    .sidebar-logout:hover { color: #fff; }
+
+    .app-main { min-width: 0; flex: 1; height: 100vh; overflow-y: auto; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 23px 28px 0;
+    }
+    .eyebrow { color: #8a96aa; font-size: 9px; letter-spacing: 1.6px; }
+    .topbar h1 { margin: 3px 0 0; font-size: 24px; font-weight: 800; }
+    .role-pill {
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: #eaf1ff;
+      color: #2458bd;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .main-content { padding: 20px 28px 28px; }
+    .guest-main { width: min(100% - 32px, 520px); margin: 8vh auto; }
+
+    h1, .h1 { font-size: 24px; font-weight: 800; }
+    h2, .h2 { font-size: 19px; font-weight: 750; }
+    h3 { font-size: 15px; font-weight: 700; }
+    .h3 { font-size: 28px; font-weight: 800; }
+    .h5 { font-size: 15px; font-weight: 700; }
+    p { line-height: 1.55; }
+    .text-secondary { color: var(--muted) !important; }
+    .card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      box-shadow: 0 2px 10px rgba(24, 43, 75, .025);
+    }
+    .card-header, .card-footer { border-color: #edf0f5; }
+    .card-body { padding: 18px; }
+    .btn { border-radius: 8px; font-size: 12px; font-weight: 650; }
+    .btn-sm { font-size: 11px; }
+    .breadcrumb { font-size: 12px; }
+    .badge { padding: 4px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+    .text-bg-primary { background: #eaf1ff !important; color: #285dc4 !important; }
+    .text-bg-success { background: #e5f8ee !important; color: #16834b !important; }
+    .text-bg-warning { background: #fff4d9 !important; color: #8b5d00 !important; }
+    .text-bg-danger { background: #ffebeb !important; color: #c43b43 !important; }
+    .text-bg-secondary { background: #eef1f6 !important; color: #667085 !important; }
+    .table { margin-bottom: 0; font-size: 12px; }
+    .table > :not(caption) > * > * { padding: 11px 12px; vertical-align: middle; }
+    .table > thead > tr > th {
+      border-bottom-color: #edf0f5;
+      background: #f8faff;
+      color: #8a94a6;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .table > tbody > tr > td { border-bottom-color: #edf0f5; }
+    .alert { border-radius: 10px; font-size: 13px; }
+    .modal-content { border: 1px solid var(--line); border-radius: 13px; }
+
+    @media (max-width: 760px) and (min-width: 561px) {
+      .sidebar { width: 72px; flex-basis: 72px; align-items: center; padding: 18px 8px; }
+      .brand { margin: 0 0 28px; }
+      .brand-name, .side-label, .side-link span, .sidebar-bottom { display: none; }
+      .side-nav { width: 100%; }
+      .side-link { justify-content: center; padding: 12px 8px; }
+      .side-link i { font-size: 17px; }
+      .topbar { padding-right: 20px; padding-left: 20px; }
+      .main-content { padding-right: 20px; padding-left: 20px; }
+    }
+    @media (max-width: 560px) {
+      .app-shell { flex-direction: column; }
+      .sidebar { width: 100%; min-height: auto; flex: 0 0 auto; padding: 12px; }
+      .brand { margin: 0 4px 12px; }
+      .brand-name { display: block; }
+      .side-label, .sidebar-bottom { display: none; }
+      .side-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .side-link { margin: 0; padding: 9px; font-size: 12px; }
+      .side-link span { display: inline; }
+      .app-main { height: auto; overflow: visible; }
+      .topbar { padding: 18px 16px 0; }
+      .topbar h1 { font-size: 21px; }
+      .main-content { padding: 16px; }
+      .guest-main { margin: 24px auto; }
+      .btn-group { flex-wrap: wrap; }
+    }
+    @media print {
+      .sidebar, .topbar, .no-print, .btn, footer { display: none !important; }
+      .app-shell, .app-main { display: block; height: auto; overflow: visible; }
+      .main-content { padding: 0; }
+      body { background: #fff; }
+      .card { box-shadow: none; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
 <body>
-{# PLACEHOLDER by BE1: FE replaces this with the real layout. Keep the block names, variable names and URL names. #}
-<nav>
-{% if user.is_authenticated %}
-  {{ user.full_name }} ({{ user.get_role_display }}) |
-  <a href="{% url 'home' %}">Home</a>
-  {% if user.role == 'ADMIN' %}
-    <a href="{% url 'user_list' %}">Accounts</a>
-    <a href="{% url 'course_list' %}">Courses</a>
-    <a href="{% url 'threshold_settings' %}">Warning threshold</a>
-  {% endif %}
-  <a href="{% url 'classroom_list' %}">Classrooms</a>
-  <a href="{% url 'session_list' %}">Sessions</a>
-  <form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button>Log out</button></form>
-{% endif %}
-</nav>
-{% if messages %}<ul>{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
-{% block content %}{% endblock %}
+  <div class="app-shell">
+    {% if user.is_authenticated %}
+    <aside class="sidebar">
+      <a class="brand text-decoration-none text-white" href="{% url 'home' %}">
+        <span class="brand-mark">A</span>
+        <span class="brand-name">Attendance<span class="brand-sub">MANAGEMENT SYSTEM</span></span>
+      </a>
+      <div class="side-label">WORKSPACE</div>
+      <nav class="side-nav" aria-label="Điều hướng chính">
+        {% if user.role == "STUDENT" %}
+          <a class="side-link{% if request.resolver_match.url_name == 'student_dashboard' %} active{% endif %}" href="{% url 'student_dashboard' %}"><i class="bi bi-grid" aria-hidden="true"></i><span>Dashboard</span></a>
+          <a class="side-link{% if request.resolver_match.url_name == 'classroom_list' or request.resolver_match.url_name == 'classroom_detail' %} active{% endif %}" href="{% url 'classroom_list' %}"><i class="bi bi-journals" aria-hidden="true"></i><span>Lớp học</span></a>
+        {% else %}
+          <a class="side-link{% if request.resolver_match.url_name == 'home' %} active{% endif %}" href="{% url 'home' %}"><i class="bi bi-grid" aria-hidden="true"></i><span>Dashboard</span></a>
+          <a class="side-link{% if request.resolver_match.url_name == 'classroom_list' or request.resolver_match.url_name == 'classroom_detail' %} active{% endif %}" href="{% url 'classroom_list' %}"><i class="bi bi-journals" aria-hidden="true"></i><span>Lớp học</span></a>
+          <a class="side-link{% if request.resolver_match.url_name == 'session_list' or request.resolver_match.url_name == 'session_detail' or request.resolver_match.url_name == 'take_attendance' %} active{% endif %}" href="{% url 'session_list' %}"><i class="bi bi-calendar-week" aria-hidden="true"></i><span>Buổi học</span></a>
+          {% if user.role == "ADMIN" %}
+            <a class="side-link{% if request.resolver_match.url_name == 'user_list' %} active{% endif %}" href="{% url 'user_list' %}"><i class="bi bi-people" aria-hidden="true"></i><span>Tài khoản</span></a>
+            <a class="side-link{% if request.resolver_match.url_name == 'course_list' %} active{% endif %}" href="{% url 'course_list' %}"><i class="bi bi-book" aria-hidden="true"></i><span>Môn học</span></a>
+          {% endif %}
+        {% endif %}
+        {% if user.role == "ADMIN" %}
+          <div class="side-label side-label-spaced">SETTINGS</div>
+          <a class="side-link{% if request.resolver_match.url_name == 'threshold_settings' %} active{% endif %}" href="{% url 'threshold_settings' %}"><i class="bi bi-sliders" aria-hidden="true"></i><span>Ngưỡng cảnh báo</span></a>
+        {% endif %}
+      </nav>
+      <div class="sidebar-bottom">
+        <span class="avatar" aria-hidden="true">{{ user.full_name|first|upper }}</span>
+        <span class="avatar-info"><strong>{{ user.full_name }}</strong><small>{{ user.get_role_display }}</small></span>
+        <form method="post" action="{% url 'logout' %}" class="m-0">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-link sidebar-logout" aria-label="Đăng xuất"><i class="bi bi-box-arrow-right" aria-hidden="true"></i></button>
+        </form>
+      </div>
+    </aside>
+    {% endif %}
+
+    <div class="app-main{% if not user.is_authenticated %} guest-main{% endif %}">
+      {% if user.is_authenticated %}
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">ATTENDANCE SYSTEM</div>
+          <h1>{% block page_heading %}{{ title|default:"" }}{% endblock %}</h1>
+        </div>
+        <span class="role-pill">{{ user.get_role_display }}</span>
+      </header>
+      {% endif %}
+      <main class="main-content">
+        {% if messages %}
+          {% for m in messages %}
+            <div class="alert alert-{% if 'error' in m.tags %}danger{% elif 'success' in m.tags %}success{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+              {{ m }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

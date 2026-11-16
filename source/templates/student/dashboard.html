@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Tổng quan sinh viên · Attendance System{% endblock %}
+{% block page_heading %}Tổng quan sinh viên{% endblock %}
+{% block content %}
+<header class="mb-4">
+  <p class="text-secondary mb-0">Theo dõi lịch học và tình hình chuyên cần trong kỳ.</p>
+</header>
+
+{% for row in classroom_rows %}
+  {% if row.summary.is_warned %}
+    <div class="alert alert-danger d-flex gap-2 align-items-start" role="alert">
+      <i class="bi bi-exclamation-triangle-fill mt-1" aria-hidden="true"></i>
+      <div><strong>Cảnh báo:</strong> Bạn đã vắng {{ row.summary.absence_rate }}% số buổi môn {{ row.classroom.course.name }}, nguy cơ bị cấm thi!</div>
+    </div>
+  {% endif %}
+{% endfor %}
+
+<div class="row g-3">
+  {% for row in classroom_rows %}
+    <div class="col-12 col-lg-6">
+      <article class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between gap-3 mb-3">
+            <div><p class="text-primary fw-semibold mb-1">{{ row.classroom.course.code }}</p><h2 class="h5 mb-0">{{ row.classroom.course.name }}</h2></div>
+            <span class="badge text-bg-light border align-self-start">{{ row.classroom.class_id }}</span>
+          </div>
+          <p class="mb-1"><strong>Lớp:</strong> {{ row.classroom.name }}</p>
+          <p class="text-secondary mb-3"><strong>Giảng viên:</strong> {{ row.classroom.teacher.full_name|default:"Chưa phân công" }}</p>
+          <div class="row g-2 mb-3">
+            <div class="col-4"><div class="rounded bg-light p-2 text-center"><small class="d-block text-secondary">Tổng buổi</small><strong>{{ row.summary.total_sessions }}</strong></div></div>
+            <div class="col-4"><div class="rounded bg-light p-2 text-center"><small class="d-block text-secondary">Đi muộn</small><strong>{{ row.summary.late_count }}</strong></div></div>
+            <div class="col-4"><div class="rounded bg-light p-2 text-center"><small class="d-block text-secondary">Tỷ lệ vắng</small><strong class="{% if row.summary.is_warned %}text-danger{% endif %}">{{ row.summary.absence_rate }}%</strong></div></div>
+          </div>
+          <a class="btn btn-outline-primary" href="{% url 'student_attendance_history' row.classroom.pk %}">Xem lịch sử điểm danh</a>
+        </div>
+      </article>
+    </div>
+  {% empty %}
+    <div class="col-12"><div class="card"><div class="card-body text-center py-5">
+      <i class="bi bi-journal-x display-5 text-secondary" aria-hidden="true"></i><p class="h5 mt-3">Bạn chưa đăng ký lớp học nào</p>
+    </div></div></div>
+  {% endfor %}
+</div>
+{% endblock %}

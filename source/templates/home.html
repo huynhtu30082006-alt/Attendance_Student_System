@@ -1,20 +1,46 @@
 {% extends "base.html" %}
+{% block title %}Dashboard · Attendance System{% endblock %}
+{% block page_heading %}Dashboard{% endblock %}
 {% block content %}
-<h1>Welcome, {{ user.full_name }}</h1>
-<p>Role: {{ user.get_role_display }}</p>
-<ul>
-{% if role == 'ADMIN' %}
-  <li><a href="{% url 'user_list' %}">Manage accounts</a></li>
-  <li><a href="{% url 'course_list' %}">Manage courses</a></li>
-  <li><a href="{% url 'classroom_list' %}">Manage classrooms</a></li>
-  <li><a href="{% url 'session_list' %}">Sessions</a></li>
-  <li><a href="{% url 'threshold_settings' %}">Absence warning threshold</a></li>
-{% elif role == 'TEACHER' %}
-  <li><a href="{% url 'classroom_list' %}">My classrooms</a></li>
-  <li><a href="{% url 'session_list' %}">Session schedule</a></li>
-{% else %}
-  <li><a href="{% url 'classroom_list' %}">My classrooms</a></li>
-  <li><a href="{% url 'session_list' %}">Session schedule</a></li>
-{% endif %}
-</ul>
+<p class="text-secondary mb-4">Welcome back, {{ user.full_name }}. Choose a workspace to continue.</p>
+
+<div class="row g-3">
+  {% if role == "ADMIN" %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="card h-100 text-decoration-none text-reset" href="{% url 'user_list' %}">
+        <div class="card-body"><i class="bi bi-people fs-4 text-primary" aria-hidden="true"></i><h2 class="h5 mt-3">Accounts</h2><p class="text-secondary mb-0">Manage student and teacher accounts.</p></div>
+      </a>
+    </div>
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="card h-100 text-decoration-none text-reset" href="{% url 'course_list' %}">
+        <div class="card-body"><i class="bi bi-book fs-4 text-primary" aria-hidden="true"></i><h2 class="h5 mt-3">Courses</h2><p class="text-secondary mb-0">View and manage courses.</p></div>
+      </a>
+    </div>
+  {% endif %}
+  <div class="col-12 col-md-6 col-xl-4">
+    <a class="card h-100 text-decoration-none text-reset" href="{% if role == 'STUDENT' %}{% url 'student_dashboard' %}{% else %}{% url 'classroom_list' %}{% endif %}">
+      <div class="card-body"><i class="bi bi-journals fs-4 text-primary" aria-hidden="true"></i><h2 class="h5 mt-3">{% if role == "STUDENT" %}My Classes{% else %}My Classrooms{% endif %}</h2><p class="text-secondary mb-0">Browse classes, students, and attendance reports.</p></div>
+    </a>
+  </div>
+  {% if role != "STUDENT" %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="card h-100 text-decoration-none text-reset" href="{% url 'session_list' %}">
+        <div class="card-body"><i class="bi bi-calendar-week fs-4 text-primary" aria-hidden="true"></i><h2 class="h5 mt-3">Sessions</h2><p class="text-secondary mb-0">Review scheduled, open, and closed sessions.</p></div>
+      </a>
+    </div>
+  {% else %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="card h-100 text-decoration-none text-reset" href="{% url 'session_list' %}">
+        <div class="card-body"><i class="bi bi-calendar-week fs-4 text-primary" aria-hidden="true"></i><h2 class="h5 mt-3">Session Schedule</h2><p class="text-secondary mb-0">Check your upcoming class sessions.</p></div>
+      </a>
+    </div>
+  {% endif %}
+  {% if role == "ADMIN" %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="card h-100 text-decoration-none text-reset" href="{% url 'threshold_settings' %}">
+        <div class="card-body"><i class="bi bi-sliders fs-4 text-primary" aria-hidden="true"></i><h2 class="h5 mt-3">Warning Threshold</h2><p class="text-secondary mb-0">Configure the absence warning rate.</p></div>
+      </a>
+    </div>
+  {% endif %}
+</div>
 {% endblock %}

@@ -1,7 +1,53 @@
 {% extends "base.html" %}
+{% block title %}Buổi học · Attendance System{% endblock %}
+{% block page_heading %}Buổi học{% endblock %}
 {% block content %}
-<h1>Sessions</h1>
-{% if sessions %}
-<ul>{% for s in sessions %}<li><a href="{% url 'session_detail' s.pk %}">{{ s.classroom }} - {{ s.date }} {{ s.start_time|time:"H:i" }}</a> - room {{ s.room }} [{{ s.get_status_display }}]</li>{% endfor %}</ul>
-{% else %}<p>There is no session to display.</p>{% endif %}
+<header class="mb-4">
+  <p class="text-secondary mb-0">Danh sách lịch học thuộc các lớp được phân công hoặc đăng ký.</p>
+</header>
+<section class="card">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <div><h2 class="h5 mb-1">Lịch buổi học</h2><p class="text-secondary small mb-0">Theo dõi trạng thái và mở nhanh màn hình điểm danh.</p></div>
+    <span class="badge text-bg-primary">{{ sessions|length }} buổi</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th scope="col">Lớp / Môn học</th><th scope="col">Ngày</th><th scope="col">Giờ</th><th scope="col">Phòng</th><th scope="col">Trạng thái</th><th scope="col" class="text-end">Thao tác</th></tr></thead>
+      <tbody>
+      {% for session in sessions %}
+        <tr>
+          <td><strong>{{ session.classroom.name }}</strong><br><small class="text-secondary">{{ session.classroom.course.code }} · {{ session.classroom.course.name }}</small></td>
+          <td>{{ session.date|date:"d/m/Y" }}</td>
+          <td>{{ session.start_time|time:"H:i" }}</td>
+          <td>{{ session.room }}</td>
+          <td>
+            {% if session.status == "SCHEDULED" %}<span class="badge text-bg-primary">Scheduled / Đã lên lịch</span>
+            {% elif session.status == "OPEN" %}<span class="badge text-bg-success">Open / Đang mở</span>
+            {% elif session.status == "CLOSED" %}<span class="badge text-bg-secondary">Closed / Đã đóng</span>
+            {% else %}<span class="badge text-bg-danger">Cancelled / Đã hủy</span>{% endif %}
+          </td>
+          <td class="text-end text-nowrap">
+            {% if user.role == "STUDENT" %}
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'session_detail' session.pk %}">Chi tiết</a>
+            {% elif session.status == "SCHEDULED" %}
+              <form method="post" action="{% url 'session_open' session.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-success" type="submit"><i class="bi bi-play-fill me-1" aria-hidden="true"></i>Mở buổi</button>
+              </form>
+            {% elif session.status == "OPEN" %}
+              <a class="btn btn-sm btn-primary" href="{% url 'take_attendance' session.pk %}">Điểm danh</a>
+            {% elif session.status == "CLOSED" %}
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'take_attendance' session.pk %}">Xem / sửa</a>
+            {% else %}
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'session_detail' session.pk %}">Chi tiết</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-secondary py-5">Chưa có buổi học nào.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endblock %}

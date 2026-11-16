@@ -9,11 +9,14 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods, require_POST
 
+from attendance.services import get_absence_threshold, get_student_classroom_summary
+from classrooms.access import classrooms_for
+
 from . import services
 from .bruteforce import lockout_until, purge_old_attempts, record_attempt
 from .forms import LoginForm, UserCreateForm, UserUpdateForm
 from .models import Role, UserAccount
-from .permissions import admin_required
+from .permissions import admin_required, student_required
 from .utils import render_confirm
 
 # Never reveal whether the username or the password was wrong (NFR Brute-Force Protection)
@@ -59,6 +62,21 @@ def logout_view(request):
 @login_required
 def home(request):
     return render(request, "home.html", {"role": request.user.role})
+
+
+@student_required
+def student_dashboard(request):
+    classroom_rows = [
+        {
+            "classroom": classroom,
+            "summary": get_student_classroom_summary(request.user.student_profile, classroom),
+        }
+        for classroom in classrooms_for(request.user)
+    ]
+    return render(request, "student/dashboard.html", {
+        "classroom_rows": classroom_rows,
+        "threshold": get_absence_threshold(),
+    })
 
 
 # ---------- Task 3: account CRUD + search (Admin only) ----------

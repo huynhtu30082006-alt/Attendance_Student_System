@@ -1,6 +1,7 @@
 import datetime
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import TestCase
@@ -16,6 +17,7 @@ from .services import (
     get_student_classroom_summary,
     open_session,
     take_attendance,
+    update_closed_attendance,
 )
 
 
@@ -135,3 +137,29 @@ class AttendanceLogicTests(TestCase):
         sv2_row = next(r for r in report["rows"] if r["student"] == self.students[1])
         self.assertEqual(sv2_row["absence_rate"], Decimal("0.00"))
         self.assertFalse(sv2_row["is_warned"])
+
+    def test_closed_attendance_can_be_updated_for_every_enrolled_student(self):
+        open_session(self.session)
+        close_session(self.session, {
+            student.student_id: AttendanceStatus.PRESENT for student in self.students
+        })
+
+        update_closed_attendance(self.session, {
+            self.students[0].student_id: AttendanceStatus.ABSENT,
+            self.students[1].student_id: AttendanceStatus.LATE,
+            self.students[2].student_id: AttendanceStatus.PRESENT,
+        })
+
+        self.assertEqual(
+            AttendanceRecord.objects.get(session=self.session, student=self.students[0]).status,
+            AttendanceStatus.ABSENT,
+        )
+
+    def test_closed_attendance_update_rejects_partial_submissions(self):
+        open_session(self.session)
+        close_session(self.session)
+
+        with self.assertRaises(ValidationError):
+            update_closed_attendance(self.session, {
+                self.students[0].student_id: AttendanceStatus.PRESENT,
+            })

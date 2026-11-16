@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Báo cáo chuyên cần · {{ classroom.name }}{% endblock %}
+{% block page_heading %}Báo cáo chuyên cần{% endblock %}
+{% block content %}
+<header class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+  <div>
+    <p class="text-primary fw-semibold mb-1">{{ classroom.course.code }} · {{ classroom.course.name }}</p>
+    <p class="text-secondary mb-0">{{ classroom.name }} · Mã lớp {{ classroom.class_id }} · Ngưỡng cảnh báo {{ report.threshold }}%</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2 no-print">
+    <a class="btn btn-success" href="{% url 'export_attendance_csv' classroom.pk %}"><i class="bi bi-file-earmark-spreadsheet me-1" aria-hidden="true"></i>Xuất Excel (CSV)</a>
+    <button class="btn btn-outline-danger" type="button" onclick="window.print()"><i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>In / Lưu PDF</button>
+    <a class="btn btn-outline-secondary" href="{% url 'classroom_detail' classroom.pk %}">Quay lại lớp</a>
+  </div>
+</header>
+<div class="alert alert-light border d-flex align-items-start gap-2" role="note">
+  <i class="bi bi-info-circle text-primary mt-1" aria-hidden="true"></i>
+  <span>Tỷ lệ vắng được tính trên tổng <strong>{{ report.sessions|length }}</strong> buổi đã đóng. Sinh viên đạt hoặc vượt ngưỡng sẽ được cảnh báo.</span>
+</div>
+<section class="card">
+  <div class="table-responsive">
+    <table class="table table-hover table-striped mb-0">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">Mã SV</th><th scope="col">Họ và tên</th>
+          {% for session in report.sessions %}<th scope="col" class="text-center">{{ session.date|date:"d/m" }}<br><small>{{ session.start_time|time:"H:i" }}</small></th>{% endfor %}
+          <th scope="col">Tổng buổi</th><th scope="col">Có mặt</th><th scope="col">Muộn</th><th scope="col">Vắng</th><th scope="col">Tỷ lệ vắng</th><th scope="col">Cảnh báo</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in report.rows %}
+        <tr {% if row.is_warned %}class="table-danger"{% endif %}>
+          <td class="fw-semibold">{{ row.student.student_id }}</td>
+          <td>{{ row.student.full_name }}</td>
+          {% for session_status in row.session_statuses %}
+            <td class="text-center">
+              {% if session_status == "PRESENT" %}<span class="badge text-bg-success"><i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Có mặt / Present</span>
+              {% elif session_status == "LATE" %}<span class="badge text-bg-warning"><i class="bi bi-clock-fill me-1" aria-hidden="true"></i>Đi muộn / Late</span>
+              {% elif session_status == "ABSENT" %}<span class="badge text-bg-danger"><i class="bi bi-x-circle-fill me-1" aria-hidden="true"></i>Vắng / Absent</span>
+              {% else %}<span class="text-secondary">—</span>{% endif %}
+            </td>
+          {% empty %}
+            <td class="text-center text-secondary">—</td>
+          {% endfor %}
+          <td class="text-center">{{ row.total_sessions }}</td><td class="text-center">{{ row.present_count }}</td><td class="text-center">{{ row.late_count }}</td><td class="text-center">{{ row.absent_count }}</td>
+          <td class="fw-bold {% if row.is_warned %}text-danger{% endif %}">{{ row.absence_rate }}%</td>
+          <td>{% if row.is_warned %}<span class="badge text-bg-danger"><i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>Đạt ngưỡng</span>{% else %}<span class="badge text-bg-success">Bình thường</span>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="20" class="text-center text-secondary py-5">Chưa có sinh viên để tổng hợp.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

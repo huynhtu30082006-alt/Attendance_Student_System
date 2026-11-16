@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Điểm danh · {{ session.classroom.name }}{% endblock %}
+{% block page_heading %}Điểm danh · {{ session.classroom.name }}{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'classroom_detail' session.classroom.pk %}">{{ session.classroom.name }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Điểm danh</li>
+  </ol>
+</nav>
+<header class="card mb-4">
+  <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+      <p class="text-primary fw-semibold mb-1">{{ session.classroom.course.code }} · {{ session.classroom.course.name }}</p>
+      <p class="text-secondary mb-0">
+        <i class="bi bi-calendar-event me-1" aria-hidden="true"></i>{{ session.date|date:"d/m/Y" }}
+        <span class="mx-2">·</span><i class="bi bi-clock me-1" aria-hidden="true"></i>{{ session.start_time|time:"H:i" }}
+        <span class="mx-2">·</span><i class="bi bi-geo-alt me-1" aria-hidden="true"></i>{{ session.room }}
+      </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      {% if session.status == "SCHEDULED" %}
+        <span class="badge text-bg-primary">Scheduled / Đã lên lịch</span>
+        <form method="post" action="{% url 'session_open' session.pk %}">
+          {% csrf_token %}
+          <button class="btn btn-success" type="submit"><i class="bi bi-play-circle me-1" aria-hidden="true"></i>Bắt đầu / Mở buổi</button>
+        </form>
+      {% elif session.status == "OPEN" %}
+        <span class="badge text-bg-success">Open / Đang mở</span>
+      {% elif session.status == "CLOSED" %}
+        <span class="badge text-bg-secondary">Closed / Đã đóng</span>
+      {% else %}
+        <span class="badge text-bg-danger">Cancelled / Đã hủy</span>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+{% if session.status == "SCHEDULED" %}
+  <div class="alert alert-info" role="status"><i class="bi bi-info-circle-fill me-2" aria-hidden="true"></i>Mở buổi học để bắt đầu ghi nhận điểm danh.</div>
+{% elif session.status == "CANCELLED" %}
+  <div class="alert alert-danger" role="status">Buổi học đã bị hủy; không thể điểm danh.</div>
+{% endif %}
+
+<form method="post" id="attendanceForm" data-session-status="{{ session.status }}">
+  {% csrf_token %}
+  <input type="hidden" name="action" id="attendanceAction" value="save">
+  <input type="hidden" name="edit_mode" id="editMode" value="0">
+  <section class="row g-3 mb-4" aria-label="Tổng quan trạng thái điểm danh">
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="small text-secondary">Tổng sinh viên</span><div class="h3 mb-0" id="totalCount">{{ student_rows|length }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="small text-secondary">Có mặt / Present</span><div class="h3 text-success mb-0" id="presentCount">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="small text-secondary">Đi muộn / Late</span><div class="h3 text-warning mb-0" id="lateCount">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="small text-secondary">Vắng / Absent</span><div class="h3 text-danger mb-0" id="absentCount">0</div><small class="text-secondary">Chưa chọn: <span id="pendingCount">0</span></small></div></div></div>
+  </section>
+
+  <section class="card">
+    <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div><h2 class="h5 mb-0">Danh sách điểm danh</h2><small class="text-secondary">Chọn trạng thái cho từng sinh viên; số liệu được cập nhật tức thì.</small></div>
+      <button type="button" class="btn btn-sm btn-outline-success" id="markAllPresent" {% if session.status != "OPEN" %}disabled{% endif %}>
+        <i class="bi bi-check2-all me-1" aria-hidden="true"></i>Đánh dấu tất cả có mặt
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light"><tr><th scope="col">STT</th><th scope="col">Mã SV</th><th scope="col">Họ và tên</th><th scope="col">Trạng thái điểm danh</th><th scope="col">Ghi chú</th></tr></thead>
+        <tbody>
+        {% for row in student_rows %}
+          <tr data-student-row data-student-name="{{ row.student.full_name }}">
+            <td>{{ forloop.counter }}</td>
+            <td class="fw-semibold">{{ row.student.student_id }}</td>
+            <td>{{ row.student.full_name }}</td>
+            <td>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Trạng thái của {{ row.student.full_name }}">
+                {% for value, label in status_choices %}
+                  <input class="btn-check attendance-status" type="radio" autocomplete="off" name="status_{{ row.student.student_id }}" id="status-{{ forloop.parentloop.counter }}-{{ forloop.counter }}" value="{{ value }}" {% if row.status == value %}checked{% endif %} {% if session.status != "OPEN" %}disabled{% endif %}>
+                  <label class="btn btn-outline-{% if value == 'PRESENT' %}success{% elif value == 'LATE' %}warning{% else %}danger{% endif %}" for="status-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+                    {% if value == "PRESENT" %}<i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Có mặt / Present
+                    {% elif value == "LATE" %}<i class="bi bi-clock-fill me-1" aria-hidden="true"></i>Đi muộn / Late
+                    {% else %}<i class="bi bi-x-circle-fill me-1" aria-hidden="true"></i>Vắng / Absent{% endif %}
+                  </label>
+                {% endfor %}
+              </div>
+            </td>
+            <td>{{ row.note|default:"—" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="text-center text-secondary py-4">Lớp chưa có sinh viên.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <a class="btn btn-link" href="{% url 'classroom_detail' session.classroom.pk %}">Quay lại lớp</a>
+      <div class="d-flex flex-wrap gap-2">
+        {% if session.status == "OPEN" %}
+          <button class="btn btn-outline-primary" type="submit" data-attendance-action="save">Lưu tạm</button>
+          <button class="btn btn-danger" type="button" data-bs-toggle="modal" data-bs-target="#closeSessionModal"><i class="bi bi-lock-fill me-1" aria-hidden="true"></i>Đóng buổi</button>
+        {% elif session.status == "CLOSED" %}
+          <button class="btn btn-outline-primary" type="button" id="enableEditButton" data-bs-toggle="modal" data-bs-target="#editSessionModal"><i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Bật chế độ sửa</button>
+          <button class="btn btn-primary d-none" id="saveEditButton" type="submit" data-attendance-action="update">Lưu thay đổi</button>
+          <button class="btn btn-outline-secondary d-none" id="cancelEditButton" type="button">Hủy sửa</button>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+</form>
+
+{% if session.status == "OPEN" %}
+<div class="modal fade" id="closeSessionModal" tabindex="-1" aria-labelledby="closeSessionTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title fs-5" id="closeSessionTitle">Xác nhận đóng buổi học</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Đóng"></button></div>
+      <div class="modal-body">
+        <div class="alert alert-warning"><i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>Các sinh viên chưa được tích chọn trạng thái sẽ tự động bị đánh dấu là <strong>VẮNG (Absent)</strong>.</div>
+        <p class="mb-2 fw-semibold">Sinh viên chưa có trạng thái:</p>
+        <ul class="mb-0" id="missingStudentsList" aria-live="polite"></ul>
+      </div>
+      <div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Tiếp tục điểm danh</button><button class="btn btn-danger" type="button" id="confirmCloseButton">Xác nhận đóng buổi</button></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if session.status == "CLOSED" %}
+<div class="modal fade" id="editSessionModal" tabindex="-1" aria-labelledby="editSessionTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title fs-5" id="editSessionTitle">Mở chế độ sửa điểm danh?</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Đóng"></button></div>
+      <div class="modal-body">Buổi học đã đóng. Xác nhận để chỉnh sửa các trạng thái đã lưu.</div>
+      <div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" type="button" id="confirmEditButton">Xác nhận bật sửa</button></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+  const form = document.getElementById("attendanceForm");
+  if (!form) return;
+
+  const actionInput = document.getElementById("attendanceAction");
+  const status = form.dataset.sessionStatus;
+  const rows = Array.from(form.querySelectorAll("[data-student-row]"));
+  const selectedStatus = (row) => row.querySelector("input[type=radio]:checked")?.value || "";
+
+  function updateCounts() {
+    const counts = { PRESENT: 0, LATE: 0, ABSENT: 0, pending: 0 };
+    rows.forEach((row) => {
+      const value = selectedStatus(row);
+      if (value) counts[value] += 1;
+      else counts.pending += 1;
+    });
+    document.getElementById("presentCount").textContent = counts.PRESENT;
+    document.getElementById("lateCount").textContent = counts.LATE;
+    document.getElementById("absentCount").textContent = counts.ABSENT;
+    document.getElementById("pendingCount").textContent = counts.pending;
+
+    const missingList = document.getElementById("missingStudentsList");
+    if (missingList) {
+      missingList.replaceChildren();
+      const missingRows = rows.filter((row) => !selectedStatus(row));
+      if (!missingRows.length) {
+        const item = document.createElement("li");
+        item.textContent = "Tất cả sinh viên đã có trạng thái.";
+        missingList.append(item);
+      } else {
+        missingRows.forEach((row) => {
+          const item = document.createElement("li");
+          item.textContent = row.dataset.studentName;
+          missingList.append(item);
+        });
+      }
+    }
+  }
+
+  form.addEventListener("change", (event) => {
+    if (event.target.matches(".attendance-status")) updateCounts();
+  });
+  form.addEventListener("click", (event) => {
+    const submitter = event.target.closest("[data-attendance-action]");
+    if (submitter) actionInput.value = submitter.dataset.attendanceAction;
+  });
+  form.addEventListener("submit", (event) => {
+    const submitter = event.submitter;
+    if (submitter?.dataset.attendanceAction) {
+      actionInput.value = submitter.dataset.attendanceAction;
+    }
+  });
+
+  document.getElementById("markAllPresent")?.addEventListener("click", () => {
+    rows.forEach((row) => {
+      const present = row.querySelector('input[type="radio"][value="PRESENT"]');
+      if (present && !present.disabled) present.checked = true;
+    });
+    updateCounts();
+  });
+
+  document.getElementById("confirmCloseButton")?.addEventListener("click", () => {
+    actionInput.value = "close";
+    form.requestSubmit();
+  });
+
+  document.getElementById("confirmEditButton")?.addEventListener("click", () => {
+    document.getElementById("editMode").value = "1";
+    form.querySelectorAll(".attendance-status").forEach((input) => { input.disabled = false; });
+    document.getElementById("enableEditButton").classList.add("d-none");
+    document.getElementById("saveEditButton").classList.remove("d-none");
+    document.getElementById("cancelEditButton").classList.remove("d-none");
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("editSessionModal")).hide();
+  });
+  document.getElementById("cancelEditButton")?.addEventListener("click", () => window.location.reload());
+
+  updateCounts();
+})();
+</script>
+{% endblock %}

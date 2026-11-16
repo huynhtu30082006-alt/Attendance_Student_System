@@ -14,10 +14,12 @@ from classrooms.models import AttendanceSession, Classroom, SessionStatus
 from .models import AttendanceRecord, AttendanceStatus
 from .services import (
     close_session,
+    get_absence_threshold,
     get_classroom_attendance_report,
     get_student_classroom_summary,
     open_session,
     take_attendance,
+    update_closed_attendance,
 )
 
 
@@ -34,22 +36,18 @@ def session_open_view(request, pk):
         messages.success(request, f"Session on {session.date} is now OPEN for attendance.")
     except ValidationError as e:
         messages.error(request, str(e))
-    return redirect("session_detail", pk=session.pk)
+    return redirect("take_attendance", pk=session.pk)
 
 
 @admin_or_teacher_required
 @require_http_methods(["GET", "POST"])
 def take_attendance_view(request, pk):
-    """View and update attendance for an OPEN session."""
+    """Take attendance for an open session or review/edit a closed session."""
     session = get_object_or_404(
         AttendanceSession.objects.select_related("classroom__course"), pk=pk
     )
     if request.user.role == Role.TEACHER and session.classroom.teacher_id != request.user.teacher_id:
         raise PermissionDenied
-
-    if session.status != SessionStatus.OPEN:
-        messages.error(request, "Attendance can only be taken for an OPEN session.")
-        return redirect("session_detail", pk=session.pk)
 
     enrolled_students = Student.objects.filter(
         enrollments__classroom=session.classroom
@@ -69,6 +67,16 @@ def take_attendance_view(request, pk):
                 attendance_data[s.student_id] = val
 
         try:
+            if session.status == SessionStatus.CLOSED:
+                if action != "update" or request.POST.get("edit_mode") != "1":
+                    messages.error(request, "Enable edit mode before changing a closed session.")
+                    return redirect("take_attendance", pk=session.pk)
+                update_closed_attendance(session, attendance_data)
+                messages.success(request, "Closed-session attendance was updated.")
+                return redirect("take_attendance", pk=session.pk)
+            if session.status != SessionStatus.OPEN:
+                messages.error(request, "Open the session before taking attendance.")
+                return redirect("take_attendance", pk=session.pk)
             if action == "close":
                 close_session(session, attendance_data)
                 messages.success(request, f"Attendance finalized. Session {session} is now CLOSED.")
@@ -80,14 +88,18 @@ def take_attendance_view(request, pk):
         except ValidationError as e:
             messages.error(request, str(e))
 
+    submitted_statuses = (
+        {s.student_id: request.POST.get(f"status_{s.student_id}", "") for s in enrolled_students}
+        if request.method == "POST" else {}
+    )
     student_rows = []
     for s in enrolled_students:
         student_rows.append({
             "student": s,
-            "status": existing_records.get(s.student_id, AttendanceStatus.PRESENT)
+            "status": submitted_statuses.get(s.student_id, existing_records.get(s.student_id, ""))
         })
 
-    return render(request, "attendance/take_attendance.html", {
+    return render(request, "teacher/attendance_session.html", {
         "session": session,
         "student_rows": student_rows,
         "status_choices": AttendanceStatus.choices,
@@ -102,15 +114,26 @@ def classroom_attendance_report(request, classroom):
     # If student, limit to personal row
     if request.user.role == Role.STUDENT:
         student_summary = get_student_classroom_summary(request.user.student_profile, classroom)
-        return render(request, "attendance/student_report.html", {
+        return render(request, "student/attendance_history.html", {
             "classroom": classroom,
             "summary": student_summary,
             "threshold": report["threshold"],
         })
 
-    return render(request, "attendance/classroom_report.html", {
+    return render(request, "teacher/classroom_report.html", {
         "report": report,
         "classroom": classroom,
+    })
+
+
+@role_required(Role.STUDENT)
+@classroom_scoped
+def student_attendance_history(request, classroom):
+    summary = get_student_classroom_summary(request.user.student_profile, classroom)
+    return render(request, "student/attendance_history.html", {
+        "classroom": classroom,
+        "summary": summary,
+        "threshold": get_absence_threshold(),
     })
 
 
