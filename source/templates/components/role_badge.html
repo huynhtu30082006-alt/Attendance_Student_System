@@ -1,0 +1,2 @@
+{# {% include 'components/role_badge.html' with role=u.role %} #}
+<span class="badge badge-{{ role }}">{% if role == 'ADMIN' %}Admin{% elif role == 'TEACHER' %}Teacher{% elif role == 'STUDENT' %}Student{% else %}{{ role }}{% endif %}</span>
