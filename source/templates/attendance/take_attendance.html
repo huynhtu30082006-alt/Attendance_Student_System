@@ -1,48 +1,204 @@
 {% extends "base.html" %}
+{% block title %}Take attendance{% endblock %}
+{% block extra_css %}
+<style>
+  .att-summary{position:sticky;top:0;z-index:5;background:var(--page-bg);padding:.5rem 0 .75rem}
+  .tile{background:#fff;border:1px solid #e2e8f0;border-radius:.6rem;padding:.55rem .9rem;min-width:7.5rem}
+  .tile .n{font-size:1.35rem;font-weight:700;line-height:1.1}
+  .tile .l{font-size:.78rem;color:var(--muted)}
+  .att-table td{vertical-align:middle}
+  .att-row.is-PRESENT{box-shadow:inset 4px 0 0 #16a34a}
+  .att-row.is-LATE{box-shadow:inset 4px 0 0 #ca8a04}
+  .att-row.is-ABSENT{box-shadow:inset 4px 0 0 #dc2626}
+  .att-row.is-NONE{box-shadow:inset 4px 0 0 #cbd5e1}
+  .seg{display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end;border:0;margin:0;padding:0}
+  .seg .btn{font-size:.82rem;padding:.25rem .75rem;border-radius:999px}
+  .action-bar{position:sticky;bottom:0;background:#fff;border-top:1px solid #e2e8f0;margin:1rem -1.25rem -1.25rem;padding:.75rem 1.25rem;border-radius:0 0 .75rem .75rem}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>Take Attendance: {{ session.classroom.name }}</h1>
-<p>
-  <strong>Date:</strong> {{ session.date }} {{ session.start_time|time:"H:i" }} |
-  <strong>Room:</strong> {{ session.room }} |
-  <strong>Status:</strong> {{ session.get_status_display }}
-</p>
-
-<form method="post">
-  {% csrf_token %}
-  <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; margin-top: 15px;">
-    <thead>
-      <tr style="background: #f1f5f9;">
-        <th>Student ID</th>
-        <th>Full Name</th>
-        <th>Attendance Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in student_rows %}
-      <tr>
-        <td>{{ row.student.student_id }}</td>
-        <td>{{ row.student.full_name }}</td>
-        <td>
-          {% for val, label in status_choices %}
-            <label style="margin-right: 15px;">
-              <input type="radio" name="status_{{ row.student.student_id }}" value="{{ val }}" {% if row.status == val %}checked{% endif %}>
-              {{ label }}
-            </label>
-          {% endfor %}
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="3">No students are currently enrolled in this classroom.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <div style="margin-top: 20px;">
-    <button type="submit" name="action" value="save">Save Attendance</button>
-    <button type="submit" name="action" value="close" onclick="return confirm('Finalize and close this session? Unrecorded students will be marked Absent.');">Close Session & Finalize</button>
-    <a href="{% url 'session_detail' session.pk %}" style="margin-left: 15px;">Cancel</a>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="page-title">Take attendance</h1>
+    <div class="page-sub">
+      {{ session.classroom.course.code }} / {{ session.classroom.name }} &middot;
+      {{ session.date|date:"D d/m/Y" }} {{ session.start_time|time:"H:i" }} &middot; Room {{ session.room }}
+    </div>
   </div>
-</form>
+  <div class="d-flex align-items-center gap-2">
+    {% include 'components/status_badge.html' with status=session.status %}
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'session_detail' session.pk %}"><i class="bi bi-arrow-left me-1"></i>Back to session</a>
+  </div>
+</div>
+
+<div class="att-summary" aria-live="polite">
+  <div class="d-flex flex-wrap gap-2">
+    <div class="tile"><div class="n" id="cnt-total">{{ student_rows|length }}</div><div class="l">Students</div></div>
+    <div class="tile"><div class="n text-success" id="cnt-PRESENT">0</div><div class="l"><i class="bi bi-check-circle-fill me-1"></i>Present</div></div>
+    <div class="tile"><div class="n" style="color:#a16207" id="cnt-LATE">0</div><div class="l"><i class="bi bi-clock-fill me-1"></i>Late</div></div>
+    <div class="tile"><div class="n text-danger" id="cnt-ABSENT">0</div><div class="l"><i class="bi bi-x-circle-fill me-1"></i>Absent</div></div>
+    <div class="tile"><div class="n text-secondary" id="cnt-NONE">0</div><div class="l"><i class="bi bi-dash-circle me-1"></i>Not marked</div></div>
+  </div>
+</div>
+
+<div class="card-panel">
+  <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+    <div class="input-group" style="max-width:20rem">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input type="search" id="att-search" class="form-control" placeholder="Search by ID or name" aria-label="Search students">
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-outline-success btn-sm" data-bulk="all-present">All Present</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bulk="rest-present">Not marked &rarr; Present</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bulk="clear">Clear all</button>
+    </div>
+  </div>
+
+  <form method="post" id="attendance-form">
+    {% csrf_token %}
+    <div class="table-responsive">
+      <table class="table att-table align-middle mb-0" style="table-layout:fixed;min-width:680px">
+        <thead>
+          <tr><th style="width:3rem">#</th><th class="text-start" style="width:20%">Student ID</th><th class="text-center">Full name</th><th class="text-end" style="width:19rem">Status</th></tr>
+        </thead>
+        <tbody>
+          {% for row in student_rows %}
+          <tr class="att-row is-{{ row.status|default:'NONE' }}" data-search="{{ row.student.student_id|lower }} {{ row.student.full_name|lower }}" data-name="{{ row.student.full_name }}" data-sid="{{ row.student.student_id }}">
+            <td class="text-secondary">{{ forloop.counter }}</td>
+            <td class="fw-semibold">{{ row.student.student_id }}</td>
+            <td class="text-center">{{ row.student.full_name }}</td>
+            <td class="text-end">
+              <fieldset class="seg">
+                <legend class="visually-hidden">Status of {{ row.student.full_name }}</legend>
+                {% for val, label in status_choices %}
+                <input type="radio" class="btn-check" name="status_{{ row.student.student_id }}" id="st_{{ row.student.student_id }}_{{ val }}" value="{{ val }}" autocomplete="off" {% if row.status == val %}checked{% endif %}>
+                <label class="btn {% if val == 'PRESENT' %}btn-outline-success{% elif val == 'LATE' %}btn-outline-warning{% else %}btn-outline-danger{% endif %}" for="st_{{ row.student.student_id }}_{{ val }}">
+                  <i class="bi {% if val == 'PRESENT' %}bi-check-circle-fill{% elif val == 'LATE' %}bi-clock-fill{% else %}bi-x-circle-fill{% endif %} me-1"></i>{{ label }}
+                </label>
+                {% endfor %}
+              </fieldset>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-center text-secondary py-4">No students are currently enrolled in this classroom.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="action-bar d-flex flex-wrap gap-2 justify-content-between align-items-center">
+      <span class="text-secondary small"><i class="bi bi-info-circle me-1"></i>Students left unmarked become Absent when you close the session.</span>
+      <div class="d-flex gap-2">
+        <button type="submit" name="action" value="save" class="btn btn-brand" {% if not student_rows %}disabled{% endif %}><i class="bi bi-save me-1"></i>Save attendance</button>
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#closeSessionModal" {% if not student_rows %}disabled{% endif %}><i class="bi bi-lock-fill me-1"></i>Close session</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{# F13: confirm closing, lists students that will be marked Absent #}
+<div class="modal fade" id="closeSessionModal" tabindex="-1" aria-labelledby="closeSessionTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="closeSessionTitle">Close this session?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2">Once closed, attendance can no longer be taken; an Admin or the Teacher can still correct statuses afterwards.</p>
+        <div id="close-unmarked" class="d-none">
+          <div class="alert alert-warning py-2" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            <strong id="close-unmarked-count">0</strong> student(s) have no status and will be marked <strong>Absent</strong>:
+          </div>
+          <ul id="close-unmarked-list" class="small mb-0 ps-3"></ul>
+        </div>
+        <div id="close-allmarked" class="alert alert-success py-2 mb-0 d-none" role="status">
+          <i class="bi bi-check-circle-fill me-1"></i>Every student has a status.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Keep editing</button>
+        <button type="submit" form="attendance-form" name="action" value="close" class="btn btn-danger"><i class="bi bi-lock-fill me-1"></i>Close session</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const form = document.getElementById('attendance-form');
+  if (!form) return;
+  const rows = Array.from(form.querySelectorAll('tr.att-row'));
+  const KEYS = ['PRESENT', 'LATE', 'ABSENT', 'NONE'];
+  let dirty = false;
+
+  function rowStatus(tr) {
+    const c = tr.querySelector('input[type=radio]:checked');
+    return c ? c.value : 'NONE';
+  }
+  function refresh() {
+    const n = {PRESENT: 0, LATE: 0, ABSENT: 0, NONE: 0};
+    rows.forEach(function (tr) {
+      const s = rowStatus(tr);
+      n[s]++;
+      KEYS.forEach(function (k) { tr.classList.toggle('is-' + k, k === s); });
+    });
+    KEYS.forEach(function (k) { document.getElementById('cnt-' + k).textContent = n[k]; });
+  }
+  function setAll(fn) {
+    rows.forEach(function (tr) {
+      const v = fn(tr);
+      tr.querySelectorAll('input[type=radio]').forEach(function (r) { r.checked = (r.value === v); });
+    });
+    dirty = true; refresh();
+  }
+
+  form.addEventListener('change', function (e) {
+    if (e.target.type === 'radio') { dirty = true; refresh(); }
+  });
+  document.querySelectorAll('[data-bulk]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const m = b.dataset.bulk;
+      if (m === 'all-present') setAll(function () { return 'PRESENT'; });
+      if (m === 'rest-present') setAll(function (tr) { const s = rowStatus(tr); return s === 'NONE' ? 'PRESENT' : s; });
+      if (m === 'clear') setAll(function () { return null; });
+    });
+  });
+
+  document.getElementById('att-search').addEventListener('input', function (e) {
+    const q = e.target.value.trim().toLowerCase();
+    rows.forEach(function (tr) { tr.classList.toggle('d-none', q && tr.dataset.search.indexOf(q) === -1); });
+  });
+
+  // F13: fill the confirm dialog with the students that have no status yet
+  document.getElementById('closeSessionModal').addEventListener('show.bs.modal', function () {
+    const list = document.getElementById('close-unmarked-list');
+    list.innerHTML = '';
+    const missing = rows.filter(function (tr) { return rowStatus(tr) === 'NONE'; });
+    missing.forEach(function (tr) {
+      const li = document.createElement('li');
+      li.textContent = tr.dataset.sid + ' - ' + tr.dataset.name;
+      list.appendChild(li);
+    });
+    document.getElementById('close-unmarked-count').textContent = missing.length;
+    document.getElementById('close-unmarked').classList.toggle('d-none', missing.length === 0);
+    document.getElementById('close-allmarked').classList.toggle('d-none', missing.length !== 0);
+  });
+
+  form.addEventListener('submit', function () { dirty = false; });
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('button[form="attendance-form"]')) dirty = false;
+  });
+  window.addEventListener('beforeunload', function (e) {
+    if (dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  refresh();
+})();
+</script>
 {% endblock %}

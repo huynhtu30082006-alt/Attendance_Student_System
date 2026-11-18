@@ -1,0 +1,7 @@
+{# Compact status for table cells: {% include 'components/status_chip.html' with status=st %}  (icon + letter + hidden full word) #}
+{% with s=status|lower %}
+{% if s == 'present' %}<span class="status-badge st-ok" title="Present"><i class="bi bi-check-circle-fill"></i><span aria-hidden="true">P</span><span class="visually-hidden">Present</span></span>
+{% elif s == 'late' %}<span class="status-badge st-warn" title="Late"><i class="bi bi-clock-fill"></i><span aria-hidden="true">L</span><span class="visually-hidden">Late</span></span>
+{% elif s == 'absent' %}<span class="status-badge st-bad" title="Absent"><i class="bi bi-x-circle-fill"></i><span aria-hidden="true">A</span><span class="visually-hidden">Absent</span></span>
+{% else %}<span class="text-secondary" title="No record"><span aria-hidden="true">&ndash;</span><span class="visually-hidden">No record</span></span>{% endif %}
+{% endwith %}
