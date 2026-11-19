@@ -1,61 +1,137 @@
 {% extends "base.html" %}
-{% block content %}
-<h1>Attendance Report: {{ classroom.course.code }} - {{ classroom.name }}</h1>
-<p>
-  <strong>Class ID:</strong> {{ classroom.class_id }} |
-  <strong>Teacher:</strong> {{ classroom.teacher.full_name|default:"Not assigned" }} |
-  <strong>Warning Threshold:</strong> <span style="color: #dc3545; font-weight: bold;">{{ report.threshold }}%</span>
-</p>
+{% load attendance_tags %}
+{% block title %}Attendance report{% endblock %}
+{% block extra_css %}
+<style>
+  .tile{background:#fff;border:1px solid #e2e8f0;border-radius:.6rem;padding:.6rem 1rem;min-width:9rem}
+  .tile .n{font-size:1.5rem;font-weight:700;line-height:1.1}
+  .tile .l{font-size:.78rem;color:var(--muted)}
+  .matrix th,.matrix td{white-space:nowrap;text-align:center}
+  .matrix th:first-child,.matrix td:first-child{position:sticky;left:0;z-index:2;text-align:left;background:#fff;box-shadow:1px 0 0 #e2e8f0}
+  .matrix tr.row-warned>td{background:#fffbeb}
+  .matrix tr.row-warned>td:first-child{background:#fffbeb}
+  .matrix .sess-link{color:inherit;text-decoration:none}
+  .matrix .sess-link:hover{text-decoration:underline}
+</style>
+{% endblock %}
 
-<div style="margin-bottom: 15px;">
-  <a href="{% url 'export_attendance_csv' classroom.pk %}">📥 Export CSV</a> |
-  <a href="{% url 'classroom_detail' classroom.pk %}">Back to Classroom</a>
+{% block content %}
+{% with warned_rows=report.rows|warned %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="page-title">Attendance report</h1>
+    <div class="page-sub">
+      {{ classroom.course.code }} - {{ classroom.course.name }} / {{ classroom.name }} &middot;
+      Class ID {{ classroom.class_id }} &middot; Teacher: {{ classroom.teacher.full_name|default:"Not assigned" }}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'classroom_detail' classroom.pk %}"><i class="bi bi-arrow-left me-1"></i>Back to classroom</a>
+    <a class="btn btn-brand btn-sm" href="{% url 'export_attendance_csv' classroom.pk %}"><i class="bi bi-download me-1"></i>Export CSV</a>
+  </div>
 </div>
 
-<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 0.9em;">
-  <thead>
-    <tr style="background: #f1f5f9;">
-      <th>Student ID</th>
-      <th>Full Name</th>
-      {% for s in report.sessions %}
-        <th>{{ s.date|date:"d/m" }}<br>{{ s.start_time|time:"H:i" }}</th>
-      {% empty %}
-        <th>No closed sessions</th>
-      {% endfor %}
-      <th>Present</th>
-      <th>Late</th>
-      <th>Absent</th>
-      <th>Absence Rate</th>
-      <th>Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in report.rows %}
-    <tr {% if row.is_warned %}style="background-color: #fff3cd;"{% endif %}>
-      <td><strong>{{ row.student.student_id }}</strong></td>
-      <td>{{ row.student.full_name }}</td>
-      {% for st in row.session_statuses %}
-        <td align="center">{{ st }}</td>
-      {% empty %}
-        <td align="center">-</td>
-      {% endfor %}
-      <td align="center">{{ row.present_count }}</td>
-      <td align="center">{{ row.late_count }}</td>
-      <td align="center">{{ row.absent_count }}</td>
-      <td align="center"><strong>{{ row.absence_rate }}%</strong></td>
-      <td align="center">
-        {% if row.is_warned %}
-          <span style="color: #b02a37; font-weight: bold;">⚠️ High Absence</span>
-        {% else %}
-          <span style="color: #198754;">Normal</span>
-        {% endif %}
-      </td>
-    </tr>
-    {% empty %}
-    <tr>
-      <td colspan="10">No students enrolled in this classroom.</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <div class="tile"><div class="n">{{ report.rows|length }}</div><div class="l">Students</div></div>
+  <div class="tile"><div class="n">{{ report.sessions|length }}</div><div class="l">Closed sessions counted</div></div>
+  <div class="tile"><div class="n {% if warned_rows %}text-danger{% else %}text-success{% endif %}">{{ warned_rows|length }}</div><div class="l">At or above threshold</div></div>
+  <div class="tile"><div class="n">{{ report.threshold|floatformat:"-2" }}%</div><div class="l">Warning threshold</div></div>
+</div>
+
+<div class="card-panel mb-3">
+  <h2 class="h6 fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>Students who reached the warning threshold</h2>
+  {% if warned_rows %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Student ID</th><th>Full name</th><th class="text-end">Absent / Sessions</th><th class="text-end">Absence rate</th></tr></thead>
+      <tbody>
+        {% for row in warned_rows %}
+        <tr>
+          <td class="fw-semibold">{{ row.student.student_id }}</td>
+          <td>{{ row.student.full_name }}</td>
+          <td class="text-end">{{ row.absent_count }} / {{ row.total_sessions }}</td>
+          <td class="text-end"><span class="status-badge st-bad"><i class="bi bi-exclamation-triangle-fill"></i>{{ row.absence_rate|floatformat:"-2" }}%</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-success"><i class="bi bi-check-circle-fill me-1"></i>No student has reached the threshold.</div>
+  {% endif %}
+</div>
+
+<div class="card-panel">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h2 class="h6 fw-bold mb-0">Attendance by session</h2>
+    <div class="d-flex flex-wrap align-items-center gap-3">
+      <span class="small text-secondary">
+        <span class="status-badge st-ok"><i class="bi bi-check-circle-fill"></i>P</span> Present
+        <span class="status-badge st-warn ms-1"><i class="bi bi-clock-fill"></i>L</span> Late
+        <span class="status-badge st-bad ms-1"><i class="bi bi-x-circle-fill"></i>A</span> Absent
+      </span>
+      <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" id="only-warned">
+        <label class="form-check-label small" for="only-warned">Only students at or above threshold</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table matrix align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Student</th>
+          {% for s in report.sessions %}
+          {% url 'session_records' s.pk as rec_url %}
+          <th class="small fw-semibold">{% if rec_url %}<a class="sess-link" href="{{ rec_url }}" title="View records of this session">{{ s.date|date:"d/m" }}<br>{{ s.start_time|time:"H:i" }}</a>{% else %}{{ s.date|date:"d/m" }}<br>{{ s.start_time|time:"H:i" }}{% endif %}</th>
+          {% endfor %}
+          <th>Present</th><th>Late</th><th>Absent</th><th>Absence rate</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in report.rows %}
+        <tr class="{% if row.is_warned %}row-warned{% endif %}" data-warned="{% if row.is_warned %}1{% else %}0{% endif %}">
+          <td><div class="fw-semibold">{{ row.student.student_id }}</div><div class="small text-secondary">{{ row.student.full_name }}</div></td>
+          {% for st in row.session_statuses %}<td>{% include 'components/status_chip.html' with status=st %}</td>{% endfor %}
+          <td>{{ row.present_count }}</td>
+          <td>{{ row.late_count }}</td>
+          <td>{{ row.absent_count }}</td>
+          <td class="fw-semibold">{{ row.absence_rate|floatformat:"-2" }}%</td>
+          <td>
+            {% if row.is_warned %}<span class="status-badge st-bad"><i class="bi bi-exclamation-triangle-fill"></i>At risk</span>
+            {% else %}<span class="status-badge st-ok"><i class="bi bi-check-circle-fill"></i>Normal</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="99" class="text-center text-secondary py-4">No students are enrolled in this classroom.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if not report.sessions %}
+  <p class="text-secondary small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>No session has been closed yet, so every rate is 0%.</p>
+  {% endif %}
+  <p id="no-warned-rows" class="text-secondary small mt-3 mb-0 d-none">No student matches this filter.</p>
+</div>
+{% endwith %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const cb = document.getElementById('only-warned');
+  const rows = Array.from(document.querySelectorAll('.matrix tbody tr[data-warned]'));
+  const none = document.getElementById('no-warned-rows');
+  cb.addEventListener('change', function () {
+    let shown = 0;
+    rows.forEach(function (tr) {
+      const hide = cb.checked && tr.dataset.warned !== '1';
+      tr.classList.toggle('d-none', hide);
+      if (!hide) shown++;
+    });
+    none.classList.toggle('d-none', shown !== 0 || !cb.checked);
+  });
+})();
+</script>
 {% endblock %}

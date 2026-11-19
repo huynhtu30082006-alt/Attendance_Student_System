@@ -1,58 +1,81 @@
 {% extends "base.html" %}
-{% block content %}
-<h1>My Attendance: {{ classroom.course.code }} - {{ classroom.name }}</h1>
-<p>
-  <strong>Student ID:</strong> {{ summary.student.student_id }} |
-  <strong>Student:</strong> {{ summary.student.full_name }} |
-  <strong>Teacher:</strong> {{ classroom.teacher.full_name|default:"Not assigned" }}
-</p>
+{% block title %}My attendance{% endblock %}
+{% block extra_css %}
+<style>
+  .tile{background:#fff;border:1px solid #e2e8f0;border-radius:.6rem;padding:.6rem 1rem;min-width:9rem}
+  .tile .n{font-size:1.5rem;font-weight:700;line-height:1.1}
+  .tile .l{font-size:.78rem;color:var(--muted)}
+  .rate-track{position:relative;height:.7rem;border-radius:999px;background:#e2e8f0;overflow:visible}
+  .rate-fill{height:100%;border-radius:999px}
+  .rate-mark{position:absolute;top:-.3rem;bottom:-.3rem;width:2px;background:#13223f}
+</style>
+{% endblock %}
 
-<div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-  <h3>Overview</h3>
-  <ul>
-    <li>Total Closed Sessions: <strong>{{ summary.total_sessions }}</strong></li>
-    <li>Present: <strong>{{ summary.present_count }}</strong></li>
-    <li>Late: <strong>{{ summary.late_count }}</strong></li>
-    <li>Absent: <strong>{{ summary.absent_count }}</strong></li>
-    <li>Absence Rate: <strong>{{ summary.absence_rate }}%</strong> (Warning threshold: {{ threshold }}%)</li>
-    <li>
-      Status:
-      {% if summary.is_warned %}
-        <span style="color: #dc3545; font-weight: bold;">⚠️ Warning: Your absence rate has reached or exceeded {{ threshold }}%!</span>
-      {% else %}
-        <span style="color: #198754; font-weight: bold;">Good Standing</span>
-      {% endif %}
-    </li>
-  </ul>
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="page-title">My attendance</h1>
+    <div class="page-sub">
+      {{ classroom.course.code }} - {{ classroom.course.name }} / {{ classroom.name }} &middot;
+      Teacher: {{ classroom.teacher.full_name|default:"Not assigned" }} &middot;
+      {{ summary.student.student_id }} - {{ summary.student.full_name }}
+    </div>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="{% url 'classroom_detail' classroom.pk %}"><i class="bi bi-arrow-left me-1"></i>Back to classroom</a>
 </div>
 
-<h3>Attendance Details per Session</h3>
-<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;">
-  <thead>
-    <tr style="background: #f1f5f9;">
-      <th>Date</th>
-      <th>Time</th>
-      <th>Room</th>
-      <th>Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for r in summary.records %}
-    <tr>
-      <td>{{ r.session.date }}</td>
-      <td>{{ r.session.start_time|time:"H:i" }}</td>
-      <td>{{ r.session.room }}</td>
-      <td><strong>{{ r.get_status_display }}</strong></td>
-    </tr>
-    {% empty %}
-    <tr>
-      <td colspan="4">No attendance records found yet.</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+{% if summary.is_warned and summary.total_sessions %}
+<div class="alert alert-danger d-flex gap-3 align-items-start" role="alert">
+  <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+  <div>
+    <div class="fw-semibold">Absence warning</div>
+    Your absence rate is <strong>{{ summary.absence_rate|floatformat:"-2" }}%</strong>, which has reached the warning threshold of {{ threshold|floatformat:"-2" }}%.
+    Please talk to your teacher about the sessions you missed.
+  </div>
+</div>
+{% else %}
+<div class="alert alert-success d-flex gap-2 align-items-center" role="status">
+  <i class="bi bi-check-circle-fill"></i> Good standing: your absence rate is below the {{ threshold|floatformat:"-2" }}% warning threshold.
+</div>
+{% endif %}
 
-<p style="margin-top: 15px;">
-  <a href="{% url 'classroom_detail' classroom.pk %}">Back to Classroom</a>
-</p>
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <div class="tile"><div class="n">{{ summary.total_sessions }}</div><div class="l">Closed sessions</div></div>
+  <div class="tile"><div class="n text-success">{{ summary.present_count }}</div><div class="l"><i class="bi bi-check-circle-fill me-1"></i>Present</div></div>
+  <div class="tile"><div class="n" style="color:#a16207">{{ summary.late_count }}</div><div class="l"><i class="bi bi-clock-fill me-1"></i>Late</div></div>
+  <div class="tile"><div class="n text-danger">{{ summary.absent_count }}</div><div class="l"><i class="bi bi-x-circle-fill me-1"></i>Absent</div></div>
+</div>
+
+<div class="card-panel mb-3">
+  <div class="d-flex justify-content-between align-items-baseline mb-2">
+    <h2 class="h6 fw-bold mb-0">Absence rate</h2>
+    <span class="fw-bold {% if summary.is_warned and summary.total_sessions %}text-danger{% endif %}">{{ summary.absence_rate|floatformat:"-2" }}%</span>
+  </div>
+  <div class="rate-track" role="img" aria-label="Absence rate {{ summary.absence_rate|floatformat:'-2' }} percent, warning threshold {{ threshold|floatformat:'-2' }} percent">
+    <div class="rate-fill {% if summary.is_warned and summary.total_sessions %}bg-danger{% else %}bg-success{% endif %}" style="width:{{ summary.absence_rate|stringformat:'f' }}%"></div>
+    <div class="rate-mark" style="left:{{ threshold|stringformat:'f' }}%" title="Warning threshold"></div>
+  </div>
+  <div class="small text-secondary mt-2">The dark marker is the warning threshold ({{ threshold|floatformat:"-2" }}%). Late is not counted as absent.</div>
+</div>
+
+<div class="card-panel">
+  <h2 class="h6 fw-bold mb-3">Attendance history</h2>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Date</th><th>Time</th><th>Room</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for r in summary.records %}
+        <tr>
+          <td>{{ r.session.date|date:"D d/m/Y" }}</td>
+          <td>{{ r.session.start_time|time:"H:i" }}</td>
+          <td>{{ r.session.room }}</td>
+          <td>{% include 'components/status_badge.html' with status=r.status %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center text-secondary py-4">No attendance records yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

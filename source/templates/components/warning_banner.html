@@ -1,0 +1,17 @@
+{# Used through {% student_warning_banner %} (attendance_tags). Text + icon, never colour alone. #}
+{% if warnings %}
+<div class="alert alert-danger d-flex gap-3 align-items-start" role="alert">
+  <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+  <div>
+    <div class="fw-semibold">Absence warning</div>
+    <ul class="mb-0 ps-3">
+      {% for w in warnings %}
+      <li>
+        <a class="alert-link" href="{% url 'classroom_attendance_report' w.classroom.pk %}">{{ w.classroom.course.code }} / {{ w.classroom.name }}</a>:
+        absence rate {{ w.rate|floatformat:"-2" }}% has reached the warning threshold.
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
