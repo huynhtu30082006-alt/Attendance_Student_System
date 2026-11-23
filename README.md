@@ -1,178 +1,362 @@
 # Student Attendance System
 
-Hệ thống điểm danh sinh viên – môn Software Engineering, nhóm 1.
-Công nghệ: Python 3.12, Django 6.1 (MVC), PostgreSQL 16, Docker Compose.
+A web-based Student Attendance Management System built for academic institutions to digitize classroom attendance tracking, automate absence-rate calculations and threshold warnings, and generate exportable attendance reports.
+
+**Target Users:**
+- **Admin:** Manages user accounts, courses, classrooms, teacher assignments, student enrollments, class sessions, system-wide absence warning thresholds, and institution-wide attendance analytics.
+- **Teacher:** Opens scheduled sessions, records and finalizes student attendance, updates attendance records for closed sessions when needed, and reviews or exports classroom attendance reports.
+- **Student:** Views assigned classrooms, class schedules, personal attendance history, absence rates, and absence-warning notifications.
 
 ---
 
-## 1. Chạy dự án (làm 1 lần khi mới clone)
+## Table of Contents
 
-**Bước 1. Tạo file `.env`** (file này chứa mật khẩu nên **không có trong repo**, mỗi người tự tạo):
+- [Key Features](#key-features)
+- [Tech Stack & Architecture](#tech-stack--architecture)
+  - [Technology Stack](#technology-stack)
+  - [Directory Structure](#directory-structure)
+  - [Data Model (ERD / Class Diagram)](#data-model-erd--class-diagram)
+  - [Application Routes](#application-routes)
+  - [Authorization & Data Scoping](#authorization--data-scoping)
+- [Prerequisites](#prerequisites)
+- [Installation & Usage](#installation--usage)
+  - [1. Clone the Repository](#1-clone-the-repository)
+  - [2. Configure Environment Variables](#2-configure-environment-variables)
+  - [3. Start the Application with Docker Compose](#3-start-the-application-with-docker-compose)
+  - [4. Seed Demo Data or Create an Admin Account](#4-seed-demo-data-or-create-an-admin-account)
+  - [5. Common Docker Commands](#5-common-docker-commands)
+  - [6. Running Tests](#6-running-tests)
+  - [7. Troubleshooting](#7-troubleshooting)
+- [Environment Variables](#environment-variables)
+- [Contributing & License](#contributing--license)
 
-```powershell
+---
+
+## Key Features
+
+### Common, Authentication & Security
+- **Session-Based Authentication:** Secure login (`/login/`) and POST-only logout (`/logout/`).
+- **Password Protection:** Passwords are stored exclusively as salted PBKDF2 hashes (`PBKDF2PasswordHasher`) with minimum 8-character and standard Django password validators.
+- **Brute-Force Protection:** 5 consecutive failed login attempts for the same username within 10 minutes trigger a 15-minute lockout for that username (`accounts/bruteforce.py`).
+- **Immediate Account Lock Enforcement:** Locking a user account immediately invalidates active access (`UserAccount.is_active` reflects `AccountStatus.ACTIVE`).
+- **Session & Cookie Hardening:** 30-minute sliding inactivity timeout (`SESSION_SAVE_EVERY_REQUEST = True`), `HttpOnly` session cookies, `SameSite=Lax`, `X-Frame-Options: DENY`, `SECURE_CONTENT_TYPE_NOSNIFF = True`, and optional HTTPS cookie flags via `DJANGO_HTTPS`.
+
+### Admin
+- **User Account Management:** Create, view, search (by name, username, or student ID), edit, lock, and unlock accounts (`/users/`). Roles and student IDs are immutable after creation.
+- **Course Management:** Full CRUD for courses (`/courses/`), including transactional course-code updates and deletion protection (`PROTECT`) when classrooms exist.
+- **Classroom Management:** Create, update, and delete classrooms (`/classrooms/`), assign or change teachers, and add or remove enrolled students (removing a student deletes only the enrollment while preserving historical attendance records). Classrooms with existing attendance records cannot be deleted.
+- **Session Scheduling:** Create, edit, and cancel class sessions (`Scheduled` -> `Cancelled`), with uniqueness enforcement per `(classroom, date, start_time)`.
+- **Global Absence Threshold:** Configure the system-wide absence warning threshold percentage (`/settings/threshold/`, default `20.00%`, valid range `0`–`100%`).
+- **System-Wide Attendance Dashboard:** View institution-wide attendance metrics, weekly trends, classrooms requiring attention, and per-classroom summaries (`/attendance/summary/`).
+
+### Teacher
+- **Scoped Classrooms & Sessions:** Access only classrooms and sessions assigned to the logged-in teacher (out-of-scope access returns `403 Forbidden`).
+- **Session Attendance Workflow:** Open `Scheduled` sessions (`Scheduled` -> `Open`), mark student statuses (`Present`, `Late`, `Absent`), save progress, and close sessions (`Open` -> `Closed`).
+- **Post-Close Corrections:** View and edit attendance statuses for `Closed` sessions (`/attendance/sessions/<id>/records/`), automatically recalculating absence rates.
+
+### Student
+- **Scoped Access:** View only enrolled classrooms and their sessions.
+- **Personal Attendance Report:** Inspect session-by-session attendance status, computed attendance rate, absence rate, and absence-threshold warning indicators per classroom.
+
+### Reporting & Export
+- **Classroom Attendance Reports:** Per-classroom attendance statistics (`/attendance/classrooms/<id>/report/`) with warning highlights for students whose absence rate meets or exceeds the configured threshold.
+- **Export Formats:**
+  - **Admin Summary:** Export to Excel (`.xlsx`) via `/attendance/summary/excel/` and PDF (`.pdf`) via `/attendance/summary/pdf/`.
+  - **Classroom Report:** Export to Excel (`.xlsx`) via `/attendance/classrooms/<id>/report/excel/`, PDF (`.pdf`) via `/attendance/classrooms/<id>/report/pdf/`, and CSV (`.csv`) via `/attendance/classrooms/<id>/report/csv/`.
+
+---
+
+## Tech Stack & Architecture
+
+### Technology Stack
+
+| Layer | Technology | Version (from repo) |
+| --- | --- | --- |
+| Language | Python | 3.12 (`python:3.12-slim`) |
+| Web Framework | Django (MVT / MVC) | 6.1.2 |
+| API Toolkit | Django REST Framework | 3.18.3 |
+| Database | PostgreSQL | 16.5 (`postgres:16.5`) |
+| DB Driver | `psycopg` / `psycopg-binary` | 3.3.6 |
+| Excel Export | `openpyxl` | 3.1.5 |
+| PDF Export | `reportlab` | 4.4.1 |
+| Env Loading | `python-dotenv` | 1.2.4 |
+| Containerization | Docker & Docker Compose | Compose v2 |
+
+Django follows the MVT/MVC architecture: **Model** (`models.py`), **View / Controller** (`views.py`, `forms.py`, `services.py`), and **Template** (`source/templates/`).
+
+### Directory Structure
+
+```text
+Attendance_Student_System/
+├── docker-compose.yml              # Defines `db` (PostgreSQL 16.5) and `web` (Django) services
+├── .env.example                    # Environment variable template (copy to `.env`)
+├── .env                            # Local secrets and config (not committed)
+├── pytest.ini                      # Pytest & pytest-django configuration
+├── Testing_Document_Group01.xlsx   # 230 test cases in Testing Document template
+├── README.md
+└── source/
+    ├── Dockerfile                  # Python 3.12-slim container image
+    ├── requirements.txt            # Pinned Python dependencies
+    ├── manage.py                   # Django CLI entry point
+    ├── config/                     # Project configuration
+    │   ├── settings.py             # Reads configuration from `.env`
+    │   ├── urls.py                 # Root URL router
+    │   ├── asgi.py
+    │   └── wsgi.py
+    ├── accounts/                   # Users, auth, RBAC, brute-force protection
+    │   ├── models.py               # UserAccount, Teacher, Student, LoginAttempt
+    │   ├── views.py                # Login/logout, user CRUD, lock/unlock
+    │   ├── forms.py
+    │   ├── services.py             # Account use cases & session termination
+    │   ├── permissions.py          # Role decorators & mixins
+    │   ├── bruteforce.py           # 5 fails / 10 min -> 15 min lockout
+    │   ├── utils.py
+    │   └── tests.py
+    ├── courses/                    # Course management
+    │   ├── models.py               # Course
+    │   ├── views.py
+    │   ├── forms.py
+    │   └── urls.py
+    ├── classrooms/                 # Classrooms, enrollments, sessions
+    │   ├── models.py               # Classroom, Enrollment, AttendanceSession
+    │   ├── views.py
+    │   ├── forms.py
+    │   ├── access.py               # Role-based data scoping (Teacher/Student)
+    │   └── urls.py
+    ├── attendance/                 # Attendance recording, statistics, exports, settings
+    │   ├── models.py               # AttendanceRecord, AttendanceStatistics, Setting
+    │   ├── services.py             # Open/close session, rate calculations, summaries
+    │   ├── views_attendance.py     # Dashboard, take attendance, reports, Excel/PDF/CSV exports
+    │   ├── views_settings.py       # Absence warning threshold settings
+    │   ├── forms.py
+    │   ├── templatetags/
+    │   ├── management/commands/
+    │   │   └── seed_demo.py        # Baseline & reference performance dataset seeder
+    │   └── tests.py
+    ├── templates/                  # Server-rendered HTML templates
+    │   ├── base.html
+    │   ├── home.html, form.html, confirm.html, 403.html, 404.html
+    │   ├── accounts/               # login, user_list, user_detail
+    │   ├── courses/                # course_list, course_detail
+    │   ├── classrooms/             # classroom_list, classroom_detail, session_list, session_detail
+    │   ├── attendance/             # admin_dashboard, take_attendance, session_records, classroom_report, student_report
+    │   └── components/             # Reusable UI partials (badges, chips, modal, pagination, warning_banner)
+    └── tests/                      # Modular 230-TC pytest suite (mapped 1-to-1 with Testing_Document_Group01.xlsx)
+```
+
+### Data Model (ERD / Class Diagram)
+
+| ERD Entity | Django Model | Primary Key | Key Constraints & Relationships |
+| --- | --- | --- | --- |
+| `UserAccount` | `accounts.UserAccount` | `user_id` (`AutoField`) | Unique `username`; immutable `role` (`ADMIN`, `TEACHER`, `STUDENT`); `status` (`ACTIVE`, `LOCKED`) |
+| `Teacher` | `accounts.Teacher` | `teacher_id` (`CharField`, e.g., `T0001`) | 1-to-1 with `UserAccount` (`role=TEACHER`, `on_delete=PROTECT`) |
+| `Student` | `accounts.Student` | `student_id` (`CharField`, admin-supplied) | 1-to-1 with `UserAccount` (`role=STUDENT`, `on_delete=PROTECT`); immutable `student_id`; optional `phone_number` (9–10 digits) and `gender` |
+| `Course` | `courses.Course` | `code` (`CharField`, max 20) | Cannot be deleted while classrooms exist (`PROTECT`) |
+| `Classroom` | `classrooms.Classroom` | `class_id` (`CharField`, e.g., `CL0001`) | Belongs to 1 `Course` (`PROTECT`), at most 1 `Teacher` (`SET_NULL`); unique `(course, name)`; cannot be deleted if attendance records exist |
+| `Enrollment` | `classrooms.Enrollment` | Composite `(classroom, student)` | Prevents duplicate student enrollment; `classroom` `CASCADE`, `student` `PROTECT` |
+| `AttendanceSession` | `classrooms.AttendanceSession` | `session_id` (`AutoField`) | Unique `(classroom, date, start_time)`; status transitions: `Scheduled -> Open -> Closed` or `Scheduled -> Cancelled` |
+| `AttendanceRecord` | `attendance.AttendanceRecord` | Composite `(session, student)` | At most 1 record per student per session; `PROTECT` on both foreign keys; status in `PRESENT`, `LATE`, `ABSENT` |
+
+**Supporting Tables (outside the core ERD):**
+- `accounts.LoginAttempt` — Tracks login attempts per username for brute-force lockout protection.
+- `attendance.Setting` — Single-row configuration table (`pk=1`) storing `absence_threshold` (default `20.00%`, constrained to `0`–`100`).
+
+**Intentional Design Notes vs. ERD:**
+- `email` is stored on `UserAccount` so every role has an email address; `Student.full_name`, `Student.email`, `Teacher.full_name`, and `Teacher.email` are read-only properties delegating to `UserAccount` to avoid duplication.
+- `password` stores Django's salted PBKDF2 string (`pbkdf2_sha256$<iterations>$<salt>$<hash>`); `UserAccount.salt` is exposed as a read-only property extracted from this string.
+- `AttendanceStatistics` is a Python `@dataclass` computed dynamically from `AttendanceRecord` rather than a database table, allowing per-classroom absence and attendance rates to stay always consistent.
+- Database columns follow Django's `snake_case` convention (`class_id`, `start_time`, etc.) instead of `camelCase`.
+
+### Application Routes
+
+| URL Path | Description | Allowed Roles |
+| --- | --- | --- |
+| `/`, `/login/`, `/logout/` | Home dashboard, login, and POST-only logout | All authenticated (login is public) |
+| `/users/` (+ `new/`, `<id>/`, `<id>/edit/`, `<id>/lock/`, `<id>/unlock/`) | User CRUD, search, lock/unlock | Admin |
+| `/courses/` (+ `new/`, `<code>/`, `<code>/edit/`, `<code>/delete/`) | Course CRUD | Admin |
+| `/classrooms/`, `/classrooms/<id>/` | List and inspect classrooms (scoped by role) | All |
+| `/classrooms/new/`, `<id>/edit/`, `<id>/delete/`, `<id>/teacher/`, `<id>/students/add/`, `<id>/students/<student_id>/remove/` | Classroom CRUD, teacher assignment, student enrollment management | Admin |
+| `/classrooms/sessions/`, `/classrooms/sessions/<id>/` | List and inspect sessions (scoped by role) | All |
+| `/classrooms/<id>/sessions/new/`, `/classrooms/sessions/<id>/edit/`, `/classrooms/sessions/<id>/cancel/` | Create, edit, and cancel `Scheduled` sessions | Admin |
+| `/attendance/sessions/<id>/open/` | Open a `Scheduled` session (`POST`) | Admin, assigned Teacher |
+| `/attendance/sessions/<id>/take/` | Mark attendance and save or close an `Open` session | Admin, assigned Teacher |
+| `/attendance/sessions/<id>/records/` | View session records and edit statuses of a `Closed` session | Admin, assigned Teacher |
+| `/attendance/classrooms/<id>/report/` | Classroom attendance report (or personal report for Student) | All (scoped) |
+| `/attendance/classrooms/<id>/report/excel/`, `.../pdf/`, `.../csv/` | Export classroom attendance report | Admin, assigned Teacher |
+| `/attendance/summary/`, `.../excel/`, `.../pdf/` | System-wide attendance dashboard and Excel/PDF exports | Admin |
+| `/settings/threshold/` | Configure global absence warning threshold | Admin |
+| `/admin/` | Django administration site (maintenance) | Admin (`is_staff`) |
+
+### Authorization & Data Scoping
+- **Role Guards (`source/accounts/permissions.py`):** `@admin_required`, `@teacher_required`, `@student_required`, `@admin_or_teacher_required`, `@role_required(...)`, and `RoleRequiredMixin`.
+- **Data Scoping (`source/classrooms/access.py`):** `@classroom_scoped`, `@session_scoped`, `classrooms_for(user)`, `sessions_for(user)`, and `assert_own_student(...)`. Any Teacher or Student requesting an out-of-scope or non-existent classroom/session receives `403 Forbidden`.
+
+---
+
+## Prerequisites
+
+- **Docker Desktop** (with Docker Compose v2) — required to run the containerized Django + PostgreSQL stack.
+- **Git** — required to clone the repository.
+- **Python 3.12+** — optional, required only if running Django commands or tests directly on your host machine outside Docker.
+
+---
+
+## Installation & Usage
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/huynhtu30082006-alt/Attendance_Student_System.git
+cd Attendance_Student_System
+```
+
+### 2. Configure Environment Variables
+
+Copy `.env.example` to `.env`:
+
+```bash
+# Linux / macOS
+cp .env.example .env
+
+# Windows (PowerShell / CMD)
 copy .env.example .env
 ```
 
-Mở `.env` copy content của `.env.example` vào và sửa 2 chỗ t:
+Edit `.env` and update at least these two values:
+- `DB_PASSWORD`: Any strong password for your local PostgreSQL instance.
+- `DJANGO_SECRET_KEY`: A random 50+ character string. Generate one with:
 
-- `DB_PASSWORD=` đặt mật khẩu bất kỳ (chỉ dùng trên máy bạn).
-- `DJANGO_SECRET_KEY=` dán một chuỗi ngẫu nhiên. Tạo bằng lệnh:
-  `python -c "import secrets; print(secrets.token_urlsafe(50))"`
-  (nếu máy không có Python, gõ đại một chuỗi dài 50 ký tự trở lên).
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(50))"
+```
 
-Các dòng còn lại giữ nguyên.
+Keep the remaining defaults in `.env` unless you need custom host/port settings.
 
-**Bước 2. Chạy hệ thống:**
+### 3. Start the Application with Docker Compose
 
-```powershell
+```bash
 docker compose up --build
 ```
 
-Lần đầu mất vài phút vì phải tải image. Khi thấy dòng
-`Starting development server at http://0.0.0.0:8000/` là xong. Hệ thống tự chạy migration.
+The `web` service waits for PostgreSQL (`db`) to pass its health check, automatically runs `python manage.py migrate`, and starts the development server at `http://localhost:8000/`.
 
-**Bước 3. Tạo tài khoản Admin** (mở terminal thứ hai, để terminal cũ chạy tiếp):
+### 4. Seed Demo Data or Create an Admin Account
 
-```powershell
+Open a second terminal while the containers are running.
+
+**Option A — Seed Baseline Demo Data (`seed_demo`):**
+
+```bash
+# Seed baseline data (3 courses, 3 classrooms, 1 admin, 3 teachers, 20 students)
+docker compose exec web python manage.py seed_demo
+
+# Wipe existing business/seed data and rebuild cleanly
+docker compose exec web python manage.py seed_demo --reset
+
+# Rebuild with the large reference dataset for performance testing
+# (100 students, 10 teachers, 20 courses, 50 classrooms including PERF.100x60 with 100 students x 60 sessions)
+docker compose exec web python manage.py seed_demo --reset --reference
+```
+
+**Seeded Demo Credentials** (password for all seeded accounts: **`Attend@2026`**):
+
+| Role | Username(s) | Notes |
+| --- | --- | --- |
+| Admin | `admin` | Superuser & staff account (`admin@attendance.edu.vn`) |
+| Teacher | `gv1`, `gv2`, `gv3` (up to `gv10` with `--reference`) | Assigned to `CS101.L01`, `CS102.L01`, `CS103.L01` |
+| Student | `sv1` .. `sv20` (up to `sv100` with `--reference`) | `sv3` is configured to exceed the 20% absence warning threshold in `CS101.L01` |
+
+> Note: `--reset` deletes all business data and seeded accounts (`admin`, `gv1..gv10`, `sv1..sv100`), while preserving any manually created user accounts.
+
+**Option B — Create a Manual Superuser Account:**
+
+```bash
 docker compose exec web python manage.py createsuperuser
 ```
 
-Nhập username, họ tên, email, mật khẩu do bạn tự đặt. Sau đó mở http://localhost:8000/login/ để đăng nhập,
-hoặc http://localhost:8000/admin/ để vào trang quản trị Django.
+Follow the prompts to enter `username`, `full_name`, `email`, and `password`, then sign in at `http://localhost:8000/login/` (or `http://localhost:8000/admin/`).
 
-**Sau khi pull bản viết lại theo ERD:** migration đã được tạo lại từ đầu, nên phải xóa database cũ một lần:
-`docker compose down -v` rồi `docker compose up --build`, sau đó tạo lại Admin bằng `createsuperuser`.
+### 5. Common Docker Commands
 
-**Dừng hệ thống:** bấm `Ctrl+C`, hoặc `docker compose down`. Dữ liệu vẫn được giữ.
-Muốn xóa sạch dữ liệu để làm lại từ đầu: `docker compose down -v`.
+```bash
+# Stop containers (preserves database volume)
+docker compose down
 
-### Lần sau chỉ cần
+# Stop containers AND delete the PostgreSQL volume (clean slate)
+docker compose down -v
 
-```powershell
+# Rebuild and start after pulling new changes
 git pull origin develop
 docker compose up --build
 ```
 
----
+### 6. Running Tests
 
-## 2. Cấu trúc thư mục
+Ensure the PostgreSQL service (`db`) is running, then run the Django test suite inside the `web` container:
 
-```
-Attendance_System/
-├── docker-compose.yml        # chạy 2 service: db (PostgreSQL) và web (Django)
-├── .env.example              # mẫu biến môi trường (copy thành .env)
-├── .env                      # của riêng mỗi người, KHÔNG commit
-├── README.md
-└── source/
-    ├── Dockerfile
-    ├── requirements.txt      # danh sách thư viện Python (chỉ giữ 1 file này)
-    ├── manage.py
-    ├── config/               # cấu hình project
-    │   ├── settings.py       # đọc cấu hình từ .env
-    │   └── urls.py           # gom đường dẫn của các app
-    ├── templates/            # giao diện HTML (nhóm Frontend làm việc ở đây)
-    │   ├── base.html         # layout chung
-    │   ├── form.html, confirm.html, home.html, 403.html
-    │   ├── accounts/  courses/  classrooms/
-    ├── accounts/             # người dùng, đăng nhập, phân quyền
-    │   ├── models.py         # UserAccount, Teacher, Student, LoginAttempt
-    │   ├── views.py          # đăng nhập/đăng xuất, CRUD tài khoản
-    │   ├── forms.py
-    │   ├── permissions.py    # decorator phân quyền theo vai trò
-    │   ├── services.py       # use case tài khoản (tạo / sửa / khóa / mở khóa, kết thúc session)
-│   ├── bruteforce.py     # chống brute-force
-    │   └── tests_*.py
-    ├── courses/              # Course (khóa học)
-    ├── classrooms/           # Classroom, Enrollment, AttendanceSession
-    │   └── access.py         # giới hạn dữ liệu theo vai trò (Teacher/Student)
-    └── attendance/           # AttendanceRecord, Setting (ngưỡng cảnh báo)
+```bash
+docker compose exec web python manage.py test accounts courses classrooms attendance
 ```
 
-Kiến trúc MVC của Django: **Model** = `models.py`, **View/Controller** = `views.py` + `forms.py`,
-**Template** = thư mục `templates/`.
+Or run locally from the `source/` directory (with Python 3.12+ and dependencies installed, and `.env` configured with `DB_HOST=localhost` and `DB_PORT=5433`):
 
-### Mô hình dữ liệu (khớp ERD / Class Diagram)
+```bash
+cd source
+python manage.py test accounts courses classrooms attendance
+```
 
-| Bảng ERD | Model Django | Khóa chính | Ràng buộc chính |
-| --- | --- | --- | --- |
-| UserAccount | `accounts.UserAccount` | `user_id` (INT) | `username` unique; `role` không đổi được; `status` Active/Locked |
-| Teacher | `accounts.Teacher` | `teacher_id` (tự sinh T0001...) | 1-1 với UserAccount (role Teacher) |
-| Student | `accounts.Student` | `student_id` (admin nhập) | 1-1 với UserAccount (role Student); `phone_number`, `gender`; không đổi được |
-| Course | `courses.Course` | `code` | không xóa được khi còn lớp (`PROTECT`) |
-| Classroom | `classrooms.Classroom` | `class_id` (tự sinh CL0001...) | 1 course, tối đa 1 teacher; không xóa được khi đã có điểm danh |
-| Enrollment | `classrooms.Enrollment` | khóa kép (`classroom`, `student`) | không ghi danh trùng |
-| AttendanceSession | `classrooms.AttendanceSession` | `session_id` (INT) | unique (classroom, date, start_time); Scheduled → Open → Closed hoặc Cancelled |
-| AttendanceRecord | `attendance.AttendanceRecord` | khóa kép (`session`, `student`) | 1 bản ghi / sinh viên / buổi; `PROTECT` cả hai FK |
+If running the full 230-test-case `pytest` suite (`source/tests/`, mapped 1-to-1 with `Testing_Document_Group01.xlsx`; ensure `pytest` and `pytest-django` are installed):
 
-Bảng phụ không có trong ERD: `LoginAttempt` (chống brute-force), `Setting` (ngưỡng cảnh báo, 1 dòng, mặc định 20%).
+```bash
+pytest -v
+```
 
-**Khác biệt có chủ đích so với ERD** (nói rõ để báo cáo khớp):
+### 7. Troubleshooting
 
-- `email` nằm ở `UserAccount` (FR-04 yêu cầu mọi tài khoản đều có email); `Student.full_name`/`Student.email` đọc từ tài khoản, không lưu trùng.
-- `password`: Django lưu chuỗi băm PBKDF2 dạng `pbkdf2_sha256$vòng_lặp$salt$hash` (dài hơn VARCHAR(20)); `salt` là thuộc tính chỉ đọc lấy từ chuỗi này.
-- `AttendanceStatistics` **không** tạo bảng: Class Diagram ghi "computed from" AttendanceRecord, và khóa `studentId` đơn lẻ không lưu được tỷ lệ theo từng lớp (FR-24). BE2 tính trực tiếp từ AttendanceRecord.
-- Tên cột theo chuẩn snake_case của Django (`class_id`, `start_time`...), không dùng camelCase của ERD.
-
-### Các đường dẫn hiện có
-
-| Đường dẫn | Chức năng | Ai dùng |
-| --- | --- | --- |
-| `/login/`, `/logout/` | Đăng nhập, đăng xuất (logout bằng POST) | tất cả |
-| `/users/` (+ `new/`, `<id>/`, `edit/`, `lock/`, `unlock/`) | Quản lý tài khoản, tìm theo tên / username / mã SV, khóa / mở khóa | Admin |
-| `/courses/` (+ `new/`, `<mã>/`, `edit/`, `delete/`) | Quản lý khóa học | Admin |
-| `/classrooms/` , `/classrooms/<id>/` | Danh sách / chi tiết lớp (mỗi vai trò chỉ thấy lớp của mình) | tất cả |
-| `/classrooms/new/`, `<id>/edit/`, `delete/`, `teacher/`, `students/add/`, `students/<mã SV>/remove/` | CRUD lớp, gán GV, thêm / xóa SV | Admin |
-| `/classrooms/<id>/sessions/new/`, `/classrooms/sessions/<id>/edit/`, `cancel/` | Tạo / sửa / hủy buổi học | Admin |
-| `/classrooms/sessions/`, `/classrooms/sessions/<id>/` | Danh sách / chi tiết buổi học (theo phạm vi từng vai trò) | tất cả |
-| `/settings/threshold/` | Cấu hình ngưỡng cảnh báo vắng | Admin |
-| `/admin/` | Trang quản trị Django (chỉ để bảo trì) | Admin |
-
-### Phân quyền (dành cho BE2 / FE dùng lại)
-
-- Theo vai trò: `@admin_required`, `@teacher_required`, `@student_required`, `@role_required(...)`, `RoleRequiredMixin` trong `accounts/permissions.py`.
-- Theo dữ liệu: `@classroom_scoped`, `@session_scoped`, `classrooms_for(user)`, `sessions_for(user)`, `assert_own_student(...)` trong `classrooms/access.py`. Teacher / Student truy cập ngoài phạm vi (kể cả ID không tồn tại) đều nhận 403.
-
----
-
-## 3. Tiến độ (cập nhật khi xong)
-
-Backend 1 (BE1):
-
-- [x] Repo, Docker Compose, models + migration (viết lại theo ERD)
-- [x] Đăng nhập / đăng xuất, khóa tài khoản chặn đăng nhập ngay
-- [x] Phân quyền theo vai trò, giới hạn dữ liệu Teacher/Student
-- [x] CRUD tài khoản (đổi tên đăng nhập, họ tên, email, mật khẩu; không đổi role / mã SV), tìm kiếm
-- [x] CRUD khóa học (đổi được mã, chặn xóa khi còn lớp)
-- [x] CRUD lớp (chặn xóa khi có điểm danh), gán giáo viên, thêm/xóa sinh viên (giữ điểm danh)
-- [x] CRUD buổi học (chống trùng ngày giờ, chỉ sửa/hủy khi Scheduled)
-- [x] Chống brute-force (5 lần / 10 phút → khóa 15 phút), session 30 phút, cookie HttpOnly/SameSite
-- [x] Cấu hình ngưỡng cảnh báo (mặc định 20%)
-
-Chưa làm: mở/đóng buổi điểm danh, ghi điểm danh, tính tỷ lệ vắng, báo cáo, export Excel/PDF (BE2);
-giao diện hoàn chỉnh (Frontend). Các template hiện tại chỉ là bản tạm để chạy thử.
-
----
-
-## 4. Quy ước làm việc nhóm
-
-- `main`: bản nộp, không push trực tiếp. `develop`: tích hợp. Mỗi việc một nhánh `feature/<tên>-<module>`.
-- Mở Pull Request vào `develop`, ít nhất 1 người review trước khi merge.
-- Commit rõ nghĩa, ví dụ: `BE1 task: add Enrollment model`.
-- **Không commit** `.env`, `venv/`, `db.sqlite3`. Trước khi commit chạy `git status` để kiểm tra.
-- **File migration được commit** cùng code. Người khác `git pull` rồi chạy lại là có sẵn, **không cần** chạy
-  `makemigrations`. Chỉ chạy lệnh đó khi bạn sửa `models.py`, và báo cả nhóm vì dễ xung đột.
-- Nhóm Frontend: sửa giao diện trong `source/templates/`, giữ nguyên tên template, tên biến và tên URL
-  (tên URL nằm trong các file `urls.py`).
-
----
-
-## 5. Lỗi thường gặp
-
-| Thông báo | Nguyên nhân và cách sửa |
+| Issue / Error | Cause & Resolution |
 | --- | --- |
-| `KeyError: 'DJANGO_SECRET_KEY'` | Chưa thêm `DJANGO_SECRET_KEY` vào `.env`. |
-| `InconsistentMigrationHistory` / lỗi bảng không tồn tại sau khi pull bản ERD | Database còn dữ liệu cũ. Chạy `docker compose down -v` rồi `docker compose up --build`. |
-| `password authentication failed` | Đổi `DB_PASSWORD` sau khi database đã tạo. Chạy `docker compose down -v`. |
-| Cổng 5433 hoặc 8000 đã bị dùng | Tắt chương trình đang dùng cổng đó, hoặc đổi số cổng bên trái trong `docker-compose.yml`. |
-| `docker compose` không chạy được | Chưa mở Docker Desktop. Mở lên, đợi nó báo "running" rồi thử lại. |
-| Trang web báo 403 | Tài khoản không đủ quyền với trang đó (ví dụ Teacher vào `/users/`). |
+| `KeyError: 'DJANGO_SECRET_KEY'` | `DJANGO_SECRET_KEY` is missing from `.env`. Copy `.env.example` to `.env` and set a secret key. |
+| `InconsistentMigrationHistory` or missing table errors after pulling schema changes | Local PostgreSQL volume contains stale migrations. Run `docker compose down -v` followed by `docker compose up --build`, then re-seed or run `createsuperuser`. |
+| `password authentication failed` | `DB_PASSWORD` in `.env` was changed after the PostgreSQL volume was initialized. Run `docker compose down -v` and restart. |
+| Port `5433` or `8000` already in use | Stop the conflicting local process, or change the host-side port mapping in `docker-compose.yml`. |
+| `docker compose` command fails to connect to daemon | Docker Desktop is not running. Start Docker Desktop and wait until it reports "running". |
+| `403 Forbidden` page in browser | The logged-in user does not have permission for that resource or route (e.g., a Teacher accessing `/users/` or another teacher's classroom). |
+
+---
+
+## Environment Variables
+
+All variables are loaded from `.env` at the repository root via `python-dotenv` (`source/config/settings.py`) and passed into containers via `docker-compose.yml`.
+
+| Variable | Required | Default | Description | Sample Value |
+| --- | --- | --- | --- | --- |
+| `DB_NAME` | Yes | — | PostgreSQL database name | `attendance_db` |
+| `DB_USER` | Yes | — | PostgreSQL username | `attendance_user` |
+| `DB_PASSWORD` | Yes | — | PostgreSQL password | `your_password_here` |
+| `DB_HOST` | Yes | — | Database host (`localhost` for local runs; overridden to `db` in `docker-compose.yml`) | `localhost` |
+| `DB_PORT` | Yes | — | Database port (`5433` on host; overridden to `5432` inside `docker-compose.yml`) | `5433` |
+| `DJANGO_SECRET_KEY` | Yes | — | Django cryptographic secret key (app fails to start if unset) | `change-me-to-a-long-random-string` |
+| `DJANGO_DEBUG` | No | `False` | Enables Django debug mode when set to `True` | `True` |
+| `DJANGO_ALLOWED_HOSTS` | No | `localhost,127.0.0.1` | Comma-separated list of allowed host/domain names | `localhost,127.0.0.1` |
+| `DJANGO_HTTPS` | No | `False` | When `True`, sets `SESSION_COOKIE_SECURE` and `CSRF_COOKIE_SECURE` to `True` (use only behind HTTPS) | `False` |
+
+---
+
+## Contributing & License
+
+### Git Workflow & Contribution Guidelines
+- **Branching Model:**
+  - `main`: Production/release branch — do **not** push directly.
+  - `develop`: Integration branch.
+  - `feature/<name>-<module>`: Create a dedicated branch for each feature or fix.
+- **Pull Requests:** Open a Pull Request targeting `develop` and require at least 1 reviewer approval before merging.
+- **Commit Hygiene:** Write clear, descriptive commit messages. Never commit `.env`, `venv/`, or `db.sqlite3` — verify with `git status` before committing.
+- **Database Migrations:**
+  - Always commit migration files alongside model changes.
+  - Only run `python manage.py makemigrations` when you modify `models.py`, and coordinate with the team to avoid migration conflicts.
+  - After pulling new commits, running `docker compose up --build` applies committed migrations automatically.
+- **Frontend Templates:** Keep template filenames, context variable names, and URL names (defined in each app's `urls.py`) intact when modifying files under `source/templates/`.
+
+### License
+
+`[To be added]`

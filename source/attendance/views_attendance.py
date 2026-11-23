@@ -259,16 +259,21 @@ def _render_pdf_bytes(title, headers, rows):
 def export_attendance_csv(request, pk):
     """Export attendance report of a classroom as CSV file."""
     classroom = get_classroom_or_403(request.user, pk)
-    report = get_classroom_attendance_report(classroom)
-
-    response = HttpResponse(content_type="text/csv; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="attendance_{classroom.class_id}.csv"'
-
-    headers, data_rows = _build_classroom_table(report)
-    writer = csv.writer(response)
-    writer.writerow(headers)
-    writer.writerows(data_rows)
-    return response
+    try:
+        report = get_classroom_attendance_report(classroom)
+        if not report["sessions"] or not report["rows"]:
+            messages.error(request, "There is no attendance data to export for this classroom.")
+            return redirect("classroom_attendance_report", pk=classroom.pk)
+        headers, data_rows = _build_classroom_table(report)
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="attendance_{classroom.class_id}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(headers)
+        writer.writerows(data_rows)
+        return response
+    except Exception:
+        messages.error(request, "Could not generate the CSV report. Please try again.")
+        return redirect("classroom_detail", pk=classroom.pk)
 
 
 @admin_or_teacher_required

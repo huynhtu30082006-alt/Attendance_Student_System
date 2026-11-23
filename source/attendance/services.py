@@ -9,7 +9,6 @@ Core logic for:
 """
 from decimal import Decimal
 from django.db import transaction
-from django.db.models import Count, Q
 from django.core.exceptions import ValidationError
 
 from accounts.models import Student, Teacher
@@ -18,7 +17,6 @@ from .models import (
     AttendanceRecord,
     AttendanceStatistics,
     AttendanceStatus,
-    Setting,
     get_absence_threshold,
 )
 

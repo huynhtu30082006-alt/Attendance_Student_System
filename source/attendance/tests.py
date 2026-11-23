@@ -7,19 +7,16 @@ from django.db.models import ProtectedError
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from accounts.models import AccountStatus, Role, Student, Teacher, UserAccount
+from accounts.models import Role, Student, Teacher, UserAccount
 from classrooms.models import AttendanceSession, Classroom, Enrollment, SessionStatus
 from courses.models import Course
 
 from .models import AttendanceRecord, AttendanceStatistics, AttendanceStatus, Setting
 from .services import (
     close_session,
-    get_admin_attendance_summary,
     get_classroom_attendance_report,
     get_student_classroom_summary,
     open_session,
-    take_attendance,
-    update_closed_session_attendance,
 )
 
 
