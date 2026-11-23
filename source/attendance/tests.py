@@ -1,21 +1,25 @@
 import datetime
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
-from django.test import TestCase
+from django.test import Client, TestCase
+from django.urls import reverse
 
 from accounts.models import AccountStatus, Role, Student, Teacher, UserAccount
 from classrooms.models import AttendanceSession, Classroom, Enrollment, SessionStatus
 from courses.models import Course
 
-from .models import AttendanceRecord, AttendanceStatus, Setting
+from .models import AttendanceRecord, AttendanceStatistics, AttendanceStatus, Setting
 from .services import (
     close_session,
+    get_admin_attendance_summary,
     get_classroom_attendance_report,
     get_student_classroom_summary,
     open_session,
     take_attendance,
+    update_closed_session_attendance,
 )
 
 
@@ -135,3 +139,113 @@ class AttendanceLogicTests(TestCase):
         sv2_row = next(r for r in report["rows"] if r["student"] == self.students[1])
         self.assertEqual(sv2_row["absence_rate"], Decimal("0.00"))
         self.assertFalse(sv2_row["is_warned"])
+
+    def test_oop_attendance_statistics_and_change_status(self):
+        stats = AttendanceStatistics(student=self.students[0], present_count=2, late_count=1, absent_count=1)
+        self.assertEqual(stats.total_recorded(), 4)
+        self.assertEqual(stats.attendance_rate(), Decimal("75.00"))
+        self.assertEqual(stats.absence_rate(), Decimal("25.00"))
+
+        open_session(self.session)
+        close_session(self.session, {self.students[0].student_id: AttendanceStatus.ABSENT})
+        rec = AttendanceRecord.objects.get(session=self.session, student=self.students[0])
+        rec.change_status(AttendanceStatus.PRESENT)
+        rec.refresh_from_db()
+        self.assertEqual(rec.status, AttendanceStatus.PRESENT)
+        with self.assertRaises(ValidationError):
+            rec.change_status("EXCUSED")
+
+    def test_bug001_late_enrolled_student_excludes_earlier_closed_sessions(self):
+        # Close 2 sessions before late_student enrols
+        open_session(self.session)
+        close_session(self.session, {s.student_id: AttendanceStatus.PRESENT for s in self.students})
+
+        s2 = AttendanceSession.objects.create(
+            classroom=self.classroom, date=datetime.date(2026, 11, 11),
+            start_time=datetime.time(8, 0), room="Room 101", status=SessionStatus.OPEN,
+        )
+        close_session(s2, {s.student_id: AttendanceStatus.PRESENT for s in self.students})
+
+        # Enrol a 4th student late
+        u4 = UserAccount.objects.create_user(
+            "sv4", "pw123456", full_name="Late Student", email="sv4@x.com", role=Role.STUDENT
+        )
+        late_student = Student.objects.create(student_id="SV004", user=u4)
+        Enrollment.objects.create(classroom=self.classroom, student=late_student)
+
+        # 3rd session where late_student is absent
+        s3 = AttendanceSession.objects.create(
+            classroom=self.classroom, date=datetime.date(2026, 11, 12),
+            start_time=datetime.time(8, 0), room="Room 101", status=SessionStatus.OPEN,
+        )
+        close_session(s3, {late_student.student_id: AttendanceStatus.ABSENT})
+
+        report = get_classroom_attendance_report(self.classroom)
+        late_row = next(r for r in report["rows"] if r["student"] == late_student)
+        self.assertEqual(late_row["total_sessions"], 1)
+        self.assertEqual(late_row["absence_rate"], Decimal("100.00"))
+        self.assertTrue(late_row["is_warned"])
+
+        summary = get_student_classroom_summary(late_student, self.classroom)
+        self.assertEqual(summary["total_sessions"], 1)
+        self.assertEqual(summary["absence_rate"], Decimal("100.00"))
+
+    def test_fr20_update_closed_session_attendance_and_recalculate(self):
+        open_session(self.session)
+        close_session(self.session, {
+            self.students[0].student_id: AttendanceStatus.ABSENT,
+            self.students[1].student_id: AttendanceStatus.PRESENT,
+            self.students[2].student_id: AttendanceStatus.PRESENT,
+        })
+        c = Client()
+        c.force_login(self.teacher_user)
+        url = reverse("session_records", args=[self.session.pk])
+        self.assertTrue(url.startswith("/attendance/sessions/"))
+        self.assertEqual(c.get(url).status_code, 200)
+
+        r = c.post(url, {f"status_{self.students[0].student_id}": AttendanceStatus.PRESENT})
+        self.assertEqual(r.status_code, 302)
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.status, SessionStatus.CLOSED)
+
+        report = get_classroom_attendance_report(self.classroom)
+        sv1_row = next(r for r in report["rows"] if r["student"] == self.students[0])
+        self.assertEqual(sv1_row["absence_rate"], Decimal("0.00"))
+
+    def test_fr13_admin_dashboard_and_url_routing_bug003(self):
+        self.assertEqual(reverse("threshold_settings"), "/settings/threshold/")
+        self.assertTrue(reverse("take_attendance", args=[self.session.pk]).startswith("/attendance/"))
+        self.assertTrue(reverse("admin_dashboard").startswith("/attendance/"))
+
+        admin_user = UserAccount.objects.create_user(
+            "admin1", "pw123456", full_name="Admin", email="admin@x.com", role=Role.ADMIN
+        )
+        c = Client()
+        c.force_login(admin_user)
+        self.assertEqual(c.get(reverse("admin_dashboard")).status_code, 200)
+
+        c.force_login(self.teacher_user)
+        self.assertEqual(c.get(reverse("admin_dashboard")).status_code, 403)
+
+    def test_fr26_export_excel_and_pdf(self):
+        c = Client()
+        c.force_login(self.teacher_user)
+        # Before any closed session -> redirects with error message (no file)
+        r_empty = c.get(reverse("export_attendance_excel", args=[self.classroom.pk]))
+        self.assertEqual(r_empty.status_code, 302)
+
+        open_session(self.session)
+        close_session(self.session, {s.student_id: AttendanceStatus.PRESENT for s in self.students})
+
+        r_xlsx = c.get(reverse("export_attendance_excel", args=[self.classroom.pk]))
+        self.assertEqual(r_xlsx.status_code, 200)
+        self.assertIn("spreadsheetml", r_xlsx["Content-Type"])
+
+        r_pdf = c.get(reverse("export_attendance_pdf", args=[self.classroom.pk]))
+        self.assertEqual(r_pdf.status_code, 200)
+        self.assertEqual(r_pdf["Content-Type"], "application/pdf")
+
+        # Student denied
+        c.force_login(self.students[0].user)
+        self.assertEqual(c.get(reverse("export_attendance_excel", args=[self.classroom.pk])).status_code, 403)
+        self.assertEqual(c.get(reverse("export_attendance_pdf", args=[self.classroom.pk])).status_code, 403)

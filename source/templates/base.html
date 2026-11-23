@@ -60,6 +60,7 @@
     <ul class="nav flex-column gap-1">
       <li><a class="nav-link {% if name == 'home' %}active{% endif %}" href="{% url 'home' %}"><i class="bi bi-house me-2"></i>Home</a></li>
       {% if user.role == 'ADMIN' %}
+        <li><a class="nav-link {% if name == 'admin_dashboard' %}active{% endif %}" href="{% url 'admin_dashboard' %}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
         <li><a class="nav-link {% if 'user_' in name %}active{% endif %}" href="{% url 'user_list' %}"><i class="bi bi-people me-2"></i>Accounts</a></li>
         <li><a class="nav-link {% if 'course_' in name %}active{% endif %}" href="{% url 'course_list' %}"><i class="bi bi-book me-2"></i>Courses</a></li>
       {% endif %}
