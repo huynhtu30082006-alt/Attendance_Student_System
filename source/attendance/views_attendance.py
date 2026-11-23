@@ -87,7 +87,7 @@ def take_attendance_view(request, pk):
 
         try:
             if action == "close":
-                close_session(session, attendance_data)
+                session = close_session(session, attendance_data)
                 messages.success(request, f"Attendance finalized. Session {session} is now CLOSED.")
                 return redirect("classroom_attendance_report", pk=session.classroom_id)
             else:
