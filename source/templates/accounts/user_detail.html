@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ target.username }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="page-title">{{ target.full_name }}</h1>
+    <div class="page-sub">{{ target.username }}</div>
+  </div>
+  <a href="{% url 'user_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to list</a>
+</div>
+
+<div class="card-panel" style="max-width:720px">
+  <dl class="row mb-0">
+    <dt class="col-sm-4 text-secondary fw-normal">Full name</dt><dd class="col-sm-8">{{ target.full_name }}</dd>
+    <dt class="col-sm-4 text-secondary fw-normal">Username</dt><dd class="col-sm-8">{{ target.username }}</dd>
+    <dt class="col-sm-4 text-secondary fw-normal">Email</dt><dd class="col-sm-8">{{ target.email }}</dd>
+    <dt class="col-sm-4 text-secondary fw-normal">Role</dt><dd class="col-sm-8">{% include 'components/role_badge.html' with role=target.role %}</dd>
+    <dt class="col-sm-4 text-secondary fw-normal">Status</dt><dd class="col-sm-8">{% include 'components/status_badge.html' with status=target.status %}</dd>
+    {% if target.role == 'STUDENT' %}
+    <dt class="col-sm-4 text-secondary fw-normal">Student ID</dt><dd class="col-sm-8">{{ target.student_id }}</dd>
+    <dt class="col-sm-4 text-secondary fw-normal">Phone</dt><dd class="col-sm-8">{{ target.student_profile.phone_number|default:"—" }}</dd>
+    <dt class="col-sm-4 text-secondary fw-normal">Gender</dt><dd class="col-sm-8">{{ target.student_profile.get_gender_display|default:"—" }}</dd>
+    {% elif target.role == 'TEACHER' %}
+    <dt class="col-sm-4 text-secondary fw-normal">Teacher ID</dt><dd class="col-sm-8">{{ target.teacher_id }}</dd>
+    {% endif %}
+  </dl>
+  <hr>
+  <div class="d-flex gap-2">
+    <a href="{% url 'user_update' target.pk %}" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Edit</a>
+    {% if target.is_locked %}
+    <button type="button" class="btn btn-outline-success"
+            data-confirm-url="{% url 'user_unlock' target.pk %}"
+            data-confirm-title="Unlock account"
+            data-confirm-body="Unlock account {{ target.username }}?"
+            data-confirm-label="Unlock" data-confirm-style="primary"><i class="bi bi-unlock"></i> Unlock</button>
+    {% else %}
+    <button type="button" class="btn btn-outline-danger"
+            data-confirm-url="{% url 'user_lock' target.pk %}"
+            data-confirm-title="Lock account"
+            data-confirm-body="Lock account {{ target.username }}? This user will be logged out immediately."
+            data-confirm-label="Lock"><i class="bi bi-lock"></i> Lock</button>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

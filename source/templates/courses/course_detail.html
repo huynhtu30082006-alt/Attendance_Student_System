@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ course.code }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="page-title">{{ course.code }} - {{ course.name }}</h1>
+    <div class="page-sub">Course details</div>
+  </div>
+  <a href="{% url 'course_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to list</a>
+</div>
+
+<div class="card-panel mb-3" style="max-width:720px">
+  <div class="d-flex gap-2">
+    <a href="{% url 'course_update' course.pk %}" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Edit</a>
+    <button type="button" class="btn btn-outline-danger"
+            data-confirm-url="{% url 'course_delete' course.pk %}"
+            data-confirm-title="Delete course"
+            data-confirm-body="Delete course {{ course.code }} - {{ course.name }}? A course that still has classrooms cannot be deleted."
+            data-confirm-label="Delete"><i class="bi bi-trash"></i> Delete</button>
+  </div>
+</div>
+
+<div class="card-panel">
+  <h2 class="h5 mb-3">Classrooms</h2>
+  {% if classrooms %}
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Classroom</th><th>Teacher</th></tr></thead>
+      <tbody>
+        {% for c in classrooms %}
+        <tr>
+          <td><a href="{% url 'classroom_detail' c.pk %}" class="text-decoration-none">{{ c.name }}</a></td>
+          <td>{{ c.teacher.full_name|default:"Not assigned" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="text-secondary mb-0">This course has no classroom.</p>{% endif %}
+</div>
+{% endblock %}

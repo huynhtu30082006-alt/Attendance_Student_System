@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Error 403{% endblock %}
+{% block content %}
+<div class="text-center mt-5">
+  <h1 class="display-1 fw-bold">403</h1>
+  <p class="lead">You do not have permission to access this page.</p>
+  <p class="text-secondary">If you believe this is an error, please contact the administrator.</p>
+  <a href="{% url 'home' %}" class="btn btn-brand mt-2"><i class="bi bi-house"></i> Back to Home</a>
+</div>
+{% endblock %}

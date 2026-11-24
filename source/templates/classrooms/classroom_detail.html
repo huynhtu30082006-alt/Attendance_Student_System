@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ classroom.course.code }} / {{ classroom.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="page-title">{{ classroom.course.code }} / {{ classroom.name }}</h1>
+    <div class="page-sub">Classroom {{ classroom.class_id }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'classroom_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to list</a>
+    <a href="{% url 'classroom_attendance_report' classroom.pk %}" class="btn btn-brand"><i class="bi bi-bar-chart"></i> {% if user.role == 'STUDENT' %}My attendance{% else %}Attendance report{% endif %}</a>
+    {% if can_manage %}
+    <a href="{% url 'classroom_update' classroom.pk %}" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Edit</a>
+    <button type="button" class="btn btn-outline-danger"
+            data-confirm-url="{% url 'classroom_delete' classroom.pk %}"
+            data-confirm-title="Delete classroom"
+            data-confirm-body="Delete classroom {{ classroom.name }} ({{ classroom.course.code }})? Its enrollments and sessions will be removed. A classroom that already has attendance records cannot be deleted."
+            data-confirm-label="Delete"><i class="bi bi-trash"></i> Delete</button>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card-panel mb-3">
+  <div class="row g-3">
+    <div class="col-sm-5"><div class="page-sub">Course</div><div class="fw-semibold">{{ classroom.course.code }} - {{ classroom.course.name }}</div></div>
+    <div class="col-sm-4">
+      <div class="page-sub">Teacher</div>
+      <div class="fw-semibold">
+        {% if classroom.teacher %}{{ classroom.teacher.full_name }}
+        {% else %}<span class="status-badge st-warn"><i class="bi bi-person-dash"></i>Not assigned</span>{% endif %}
+        {% if can_manage %}<a href="{% url 'classroom_assign_teacher' classroom.pk %}" class="small ms-2 fw-normal">{% if classroom.teacher %}Change{% else %}Assign{% endif %}</a>{% endif %}
+      </div>
+    </div>
+    {% if enrollments is not None %}
+    <div class="col-sm-3"><div class="page-sub">Students</div><div class="fw-semibold">{{ enrollments|length }}</div></div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="{% if enrollments is not None %}col-lg-7{% else %}col-12{% endif %}">
+    <div class="card-panel h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h6 fw-bold mb-0">Sessions</h2>
+        {% if can_manage %}<a href="{% url 'session_create' classroom.pk %}" class="btn btn-sm btn-brand"><i class="bi bi-plus-lg"></i> Add session</a>{% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th>Date</th><th>Time</th><th>Room</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+          <tbody>
+            {% for s in sessions %}
+            <tr>
+              <td><a href="{% url 'session_detail' s.pk %}" class="fw-semibold text-decoration-none">{{ s.date|date:"d/m/Y" }}</a></td>
+              <td>{{ s.start_time|time:"H:i" }}</td>
+              <td>{{ s.room }}</td>
+              <td>{% include 'components/status_badge.html' with status=s.status %}</td>
+              <td class="text-end text-nowrap">
+                <a href="{% url 'session_detail' s.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i> View</a>
+                {% if s.status == 'OPEN' and user.role != 'STUDENT' %}
+                <a href="{% url 'take_attendance' s.pk %}" class="btn btn-sm btn-success"><i class="bi bi-check2-square"></i> Take attendance</a>
+                {% endif %}
+                {% if can_manage and s.is_scheduled %}
+                <a href="{% url 'session_update' s.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> Edit</a>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        data-confirm-url="{% url 'session_cancel' s.pk %}"
+                        data-confirm-title="Cancel session"
+                        data-confirm-body="Cancel the session on {{ s.date|date:'d/m/Y' }} at {{ s.start_time|time:'H:i' }}? A cancelled session cannot be edited or reopened."
+                        data-confirm-label="Cancel session"><i class="bi bi-x-circle"></i> Cancel</button>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-secondary py-4">This classroom has no session.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if can_manage %}<div class="text-secondary small mt-2">Only Scheduled sessions can be edited or cancelled.</div>{% endif %}
+    </div>
+  </div>
+
+  {% if enrollments is not None %}
+  <div class="col-lg-5">
+    <div class="card-panel h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h6 fw-bold mb-0">Students ({{ enrollments|length }})</h2>
+        {% if can_manage %}<a href="{% url 'classroom_add_students' classroom.pk %}" class="btn btn-sm btn-brand"><i class="bi bi-person-plus"></i> Add students</a>{% endif %}
+      </div>
+      <div class="table-responsive" style="max-height:420px;overflow-y:auto">
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr><th>Student ID</th><th>Full name</th>{% if can_manage %}<th></th>{% endif %}</tr></thead>
+          <tbody>
+            {% for e in enrollments %}
+            <tr>
+              <td>{{ e.student.student_id }}</td>
+              <td>{{ e.student.full_name }}</td>
+              {% if can_manage %}
+              <td class="text-end">
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        data-confirm-url="{% url 'classroom_remove_student' classroom.pk e.student.pk %}"
+                        data-confirm-title="Remove student"
+                        data-confirm-body="Remove {{ e.student.full_name }} ({{ e.student.student_id }}) from {{ classroom.name }}? Attendance records will be kept."
+                        data-confirm-label="Remove"><i class="bi bi-person-dash"></i> Remove</button>
+              </td>
+              {% endif %}
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-secondary py-4">No Student is enrolled.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

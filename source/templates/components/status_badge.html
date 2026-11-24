@@ -1,0 +1,13 @@
+{# {% include 'components/status_badge.html' with status=obj.status %} - case-insensitive; always text + icon, never color alone #}
+{% with s=status|lower %}
+{% if s == 'present' %}<span class="status-badge st-ok"><i class="bi bi-check-circle-fill"></i>Present</span>
+{% elif s == 'late' %}<span class="status-badge st-warn"><i class="bi bi-clock-fill"></i>Late</span>
+{% elif s == 'absent' %}<span class="status-badge st-bad"><i class="bi bi-x-circle-fill"></i>Absent</span>
+{% elif s == 'scheduled' %}<span class="status-badge st-info"><i class="bi bi-calendar-event"></i>Scheduled</span>
+{% elif s == 'open' %}<span class="status-badge st-ok"><i class="bi bi-unlock-fill"></i>Open</span>
+{% elif s == 'closed' %}<span class="status-badge st-neutral"><i class="bi bi-lock-fill"></i>Closed</span>
+{% elif s == 'cancelled' %}<span class="status-badge st-bad"><i class="bi bi-slash-circle"></i>Cancelled</span>
+{% elif s == 'active' %}<span class="status-badge st-ok"><i class="bi bi-check-circle"></i>Active</span>
+{% elif s == 'locked' %}<span class="status-badge st-bad"><i class="bi bi-lock-fill"></i>Locked</span>
+{% else %}<span class="status-badge st-neutral">{{ status }}</span>{% endif %}
+{% endwith %}
