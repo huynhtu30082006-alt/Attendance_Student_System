@@ -63,4 +63,39 @@
     </section>
   </div>
 </div>
+
+<div class="card-panel mt-3">
+  <h2 class="h6 fw-bold mb-3">Attendance summary by course &amp; classroom</h2>
+  {% if has_attendance_data %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Course</th><th>Classroom</th><th class="text-end">Enrolled</th>
+          <th class="text-end">Closed sessions</th><th class="text-end">Present</th>
+          <th class="text-end">Late</th><th class="text-end">Absent</th>
+          <th class="text-end">Absence rate</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in classroom_summaries %}
+        <tr>
+          <td>{{ item.classroom.course.code }} - {{ item.classroom.course.name }}</td>
+          <td class="fw-semibold">{{ item.classroom.class_id }} ({{ item.classroom.name }})</td>
+          <td class="text-end">{{ item.enrolled_count }}</td>
+          <td class="text-end">{{ item.closed_sessions }}</td>
+          <td class="text-end text-success">{{ item.present_count }}</td>
+          <td class="text-end" style="color:#a16207">{{ item.late_count }}</td>
+          <td class="text-end text-danger">{{ item.absent_count }}</td>
+          <td class="text-end fw-semibold">{{ item.absence_rate|floatformat:"-2" }}%</td>
+          <td class="text-end"><a href="{% url 'classroom_attendance_report' item.classroom.pk %}" class="btn btn-outline-secondary btn-sm">Report</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-secondary">There is no attendance data to display.</div>
+  {% endif %}
+</div>
 {% endblock %}

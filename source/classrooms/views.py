@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from accounts.models import AccountStatus, Role, Student, Teacher
+from accounts.models import AccountStatus, Role, Teacher
 from accounts.permissions import admin_required
 from accounts.utils import create_with_code, render_confirm
 from courses.models import Course

@@ -11,7 +11,6 @@
     <a href="{% url 'classroom_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Back to list</a>
     <a href="{% url 'classroom_attendance_report' classroom.pk %}" class="btn btn-brand"><i class="bi bi-bar-chart"></i> {% if user.role == 'STUDENT' %}My attendance{% else %}Attendance report{% endif %}</a>
     {% if can_manage %}
-    <a href="{% url 'export_attendance_csv' classroom.pk %}" class="btn btn-outline-secondary"><i class="bi bi-download"></i> Export attendance (CSV)</a>
     <a href="{% url 'classroom_update' classroom.pk %}" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Edit</a>
     <button type="button" class="btn btn-outline-danger"
             data-confirm-url="{% url 'classroom_delete' classroom.pk %}"
